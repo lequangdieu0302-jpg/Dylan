@@ -10,7 +10,7 @@ import { getUpcomingMatches } from '@/services/matchService'
 import { getCompanyLeaderboard } from '@/services/leaderboardService'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/lib/supabase'
-import type { Match, LeaderboardEntry } from '@/types'
+import type { Match, LeaderboardEntry, Prediction } from '@/types'
 
 async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
   return Promise.race([
@@ -22,6 +22,7 @@ async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
 export function HomePage() {
   const { user } = useAuthStore()
   const [matches, setMatches] = useState<Match[]>([])
+  const [predictions, setPredictions] = useState<Record<string, Prediction>>({})
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [playerCount, setPlayerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -37,11 +38,20 @@ export function HomePage() {
         const countPromise = fetchWithTimeout(
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user') as any
         )
+        const predsPromise = user
+          ? fetchWithTimeout(
+              supabase
+                .from('predictions')
+                .select('*')
+                .eq('user_id', user.id) as any
+            )
+          : Promise.resolve({ data: [], error: null })
 
-        const [matchesResult, leaderboardResult, countResult] = await Promise.allSettled([
+        const [matchesResult, leaderboardResult, countResult, predsResult] = await Promise.allSettled([
           matchesPromise,
           leaderboardPromise,
-          countPromise
+          countPromise,
+          predsPromise
         ]) as any[]
 
         if (matchesResult.status === 'fulfilled') {
@@ -52,6 +62,13 @@ export function HomePage() {
         }
         if (countResult.status === 'fulfilled' && countResult.value && countResult.value.count !== null) {
           setPlayerCount(countResult.value.count)
+        }
+        if (predsResult.status === 'fulfilled' && predsResult.value && predsResult.value.data) {
+          const predMap: Record<string, Prediction> = {}
+          predsResult.value.data.forEach((p: any) => {
+            predMap[p.match_id] = p as Prediction
+          })
+          setPredictions(predMap)
         }
       } catch (err) {
         console.error('[HomePage] error in load:', err)
@@ -174,7 +191,7 @@ export function HomePage() {
           <div className="space-y-3">
             {loading
               ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40" />)
-              : matches.slice(0, 3).map((m) => <MatchCard key={m.id} match={m} />)
+              : matches.slice(0, 3).map((m) => <MatchCard key={m.id} match={m} prediction={predictions[m.id] ?? null} />)
             }
             {!loading && matches.length === 0 && (
               <div className="glass-card p-8 text-center text-muted-foreground">
