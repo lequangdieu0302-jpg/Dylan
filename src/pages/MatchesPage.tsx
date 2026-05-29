@@ -273,33 +273,89 @@ export function MatchesPage() {
                                   const awayCode = m.away_team?.country_code ?? 'TBD'
 
                                   return (
-                                    <Link
-                                      key={m.id}
-                                      to={`/matches/${m.id}`}
-                                      title={`${m.home_team?.name || 'TBD'} vs ${m.away_team?.name || 'TBD'}\n🏆 Vòng: ${m.round || 'Chưa xác định'}\n📍 Sân: ${m.venue || 'Chưa xác định'}\n⏰ Giờ đấu: ${new Date(m.match_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}`}
-                                      className={`flex flex-col items-center justify-center p-1 rounded-lg border text-[9px] w-24 transition-all hover:scale-[1.04]
-                                        ${isLive
-                                          ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold'
-                                          : isFinished
-                                            ? 'border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 opacity-70'
-                                            : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:bg-slate-100 dark:hover:bg-white/10'
-                                        }`}
-                                    >
-                                      <div className="flex items-center justify-center gap-1 font-bold">
-                                        <span>{homeCode}</span>
-                                        <span className="text-slate-500 dark:text-muted-foreground/60 text-[8px]">vs</span>
-                                        <span>{awayCode}</span>
+                                    <div key={m.id} className="relative group/tooltip w-24">
+                                      <Link
+                                        to={`/matches/${m.id}`}
+                                        className={`flex flex-col items-center justify-center p-1 rounded-lg border text-[9px] w-full transition-all hover:scale-[1.04]
+                                          ${isLive
+                                            ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold'
+                                            : isFinished
+                                              ? 'border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 opacity-70'
+                                              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:bg-slate-100 dark:hover:bg-white/10'
+                                          }`}
+                                      >
+                                        <div className="flex items-center justify-center gap-1 font-bold w-full px-0.5">
+                                          {m.home_team?.logo_url ? (
+                                            <img src={m.home_team.logo_url} alt={homeCode} className="w-3 h-3 rounded-full object-cover border border-slate-300 dark:border-white/20 shrink-0" />
+                                          ) : (
+                                            <span className="text-[7px] shrink-0">🏳️</span>
+                                          )}
+                                          <span className="truncate max-w-[20px]">{homeCode}</span>
+                                          <span className="text-slate-400 dark:text-muted-foreground/40 font-normal text-[7px] shrink-0">v</span>
+                                          <span className="truncate max-w-[20px]">{awayCode}</span>
+                                          {m.away_team?.logo_url ? (
+                                            <img src={m.away_team.logo_url} alt={awayCode} className="w-3 h-3 rounded-full object-cover border border-slate-300 dark:border-white/20 shrink-0" />
+                                          ) : (
+                                            <span className="text-[7px] shrink-0">🏳️</span>
+                                          )}
+                                        </div>
+                                        {isFinished ? (
+                                          <div className="font-bold text-primary mt-0.5">
+                                            {m.home_score} - {m.away_score}
+                                          </div>
+                                        ) : (
+                                          <div className="text-[8px] text-slate-500 dark:text-muted-foreground/80 mt-0.5">
+                                            {new Date(m.match_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                          </div>
+                                        )}
+                                      </Link>
+
+                                      {/* Custom styled Tooltip */}
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl 
+                                        bg-slate-950/95 dark:bg-slate-900/95 text-white border border-slate-200 dark:border-white/10 
+                                        shadow-2xl backdrop-blur-md opacity-0 pointer-events-none group-hover/tooltip:opacity-100 
+                                        transition-all duration-200 z-50 flex flex-col gap-2 text-center text-xs scale-95 group-hover/tooltip:scale-100"
+                                      >
+                                        <div className="text-[9px] font-bold tracking-wider text-amber-500 uppercase">
+                                          {m.round || 'VÒNG BẢNG'}
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between gap-2 px-1 py-0.5">
+                                          <div className="flex flex-col items-center gap-1 w-20">
+                                            {m.home_team?.logo_url ? (
+                                              <img src={m.home_team.logo_url} alt={m.home_team.name} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                            ) : (
+                                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🏳️</div>
+                                            )}
+                                            <span className="text-[10px] font-bold truncate max-w-full text-slate-200">{m.home_team?.name}</span>
+                                          </div>
+
+                                          <div className="text-[11px] font-black text-slate-400">VS</div>
+
+                                          <div className="flex flex-col items-center gap-1 w-20">
+                                            {m.away_team?.logo_url ? (
+                                              <img src={m.away_team.logo_url} alt={m.away_team.name} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                            ) : (
+                                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🏳️</div>
+                                            )}
+                                            <span className="text-[10px] font-bold truncate max-w-full text-slate-200">{m.away_team?.name}</span>
+                                          </div>
+                                        </div>
+
+                                        <div className="border-t border-slate-800 dark:border-white/5 pt-1.5 text-[9px] text-slate-400 flex flex-col gap-0.5">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <span>📍</span>
+                                            <span className="truncate max-w-[160px]">{m.venue || 'Chưa cập nhật'}</span>
+                                          </div>
+                                          <div className="flex items-center justify-center gap-1">
+                                            <span>⏰</span>
+                                            <span>{new Date(m.match_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-950/95 dark:border-t-slate-900/95" />
                                       </div>
-                                      {isFinished ? (
-                                        <div className="font-bold text-primary mt-0.5">
-                                          {m.home_score} - {m.away_score}
-                                        </div>
-                                      ) : (
-                                        <div className="text-[8px] text-slate-500 dark:text-muted-foreground/80 mt-0.5">
-                                          {new Date(m.match_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                      )}
-                                    </Link>
+                                    </div>
                                   )
                                 })}
                               </div>
