@@ -115,12 +115,12 @@ export function LeaderboardPage() {
 
         {/* Rules reminder */}
         <div className="mt-6 glass-card p-4 border-white/5">
-          <h3 className="font-semibold text-sm mb-3">📋 Luật tính tiền</h3>
+          <h3 className="font-semibold text-sm mb-3">📋 Luật chơi</h3>
           <div className="space-y-1.5 text-sm text-muted-foreground">
             <div className="flex justify-between"><span>✅ Đoán đúng</span><span className="text-green-400">Không mất tiền</span></div>
-            <div className="flex justify-between"><span>❌ Đoán sai</span><span className="text-red-400">+10.000 VNĐ</span></div>
-            <div className="flex justify-between"><span>⭐ Sao + Đúng</span><span className="text-green-400">-10.000 VNĐ</span></div>
-            <div className="flex justify-between"><span>⭐ Sao + Sai</span><span className="text-red-400">+20.000 VNĐ</span></div>
+            <div className="flex justify-between"><span>❌ Đoán sai</span><span className="text-red-400">Đóng quỹ 10.000 VNĐ</span></div>
+            <div className="flex justify-between"><span>⭐ Sao + Đúng</span><span className="text-green-400">Trừ quỹ 10.000 VNĐ</span></div>
+            <div className="flex justify-between"><span>⭐ Sao + Sai</span><span className="text-red-400">Đóng quỹ 20.000 VNĐ</span></div>
           </div>
         </div>
       </div>
