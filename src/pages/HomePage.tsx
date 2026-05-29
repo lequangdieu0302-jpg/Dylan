@@ -59,9 +59,9 @@ export function HomePage() {
           </div>
 
           <h1 className="font-display font-black text-5xl md:text-7xl leading-tight mb-6 animate-slide-up">
-            <span className="text-gradient-gold">World Cup</span>
+            <span className="text-gradient-gold">Dự đoán cùng</span>
             <br />
-            <span className="text-foreground">Prediction</span>
+            <span className="text-foreground">World Cup</span>
           </h1>
 
           <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto mb-8 animate-slide-up">
