@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Lock, CheckCircle, XCircle } from 'lucide-react'
+import { Star, Lock, CheckCircle, XCircle, Trophy, Handshake } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { submitPrediction } from '@/services/predictionService'
 import { useAuthStore } from '@/stores/authStore'
@@ -26,10 +26,10 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
   const homeName = match.home_team?.name || 'Đội nhà'
   const awayName = match.away_team?.name || 'Đội khách'
 
-  const choices: { value: PredictionChoice; label: string; sublabel: string; emoji: string; color: string }[] = [
-    { value: 'home', label: homeName, sublabel: 'Thắng',  emoji: '🏆', color: 'selected-home' },
-    { value: 'draw', label: 'Hoà',    sublabel: '1 - 1', emoji: '🤝', color: 'selected-draw' },
-    { value: 'away', label: awayName, sublabel: 'Thắng',  emoji: '🏆', color: 'selected-away' },
+  const choices: { value: PredictionChoice; label: string; sublabel: string; color: string }[] = [
+    { value: 'home', label: homeName, sublabel: 'Thắng',  color: 'selected-home' },
+    { value: 'draw', label: 'Hoà',    sublabel: '1 - 1', color: 'selected-draw' },
+    { value: 'away', label: awayName, sublabel: 'Thắng',  color: 'selected-away' },
   ]
 
   const handleSubmit = async () => {
@@ -106,7 +106,23 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
               !canPredict && 'opacity-60 cursor-not-allowed'
             )}
           >
-            <span className="text-xl">{c.emoji}</span>
+            {c.value === 'home' && (
+              match.home_team?.logo_url ? (
+                <img src={match.home_team.logo_url} alt={homeName} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+              ) : (
+                <Trophy className="h-6 w-6 text-blue-400 shrink-0" />
+              )
+            )}
+            {c.value === 'draw' && (
+              <Handshake className="h-6 w-6 text-gold-400 shrink-0" />
+            )}
+            {c.value === 'away' && (
+              match.away_team?.logo_url ? (
+                <img src={match.away_team.logo_url} alt={awayName} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+              ) : (
+                <Trophy className="h-6 w-6 text-green-400 shrink-0" />
+              )
+            )}
             <span className="text-[11px] font-bold text-center leading-tight line-clamp-2 px-0.5">{c.label}</span>
             <span className="text-[10px] text-muted-foreground">{c.sublabel}</span>
             {selected === c.value && (
