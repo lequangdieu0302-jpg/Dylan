@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 20% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 8%;
+    --primary: 43 96% 56%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 220 14% 90%;
+    --secondary-foreground: 220 20% 8%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 43 96% 56%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 20% 95%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 20% 95%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 43 96% 56%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 222 20% 14%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 222 20% 12%;
+    --muted-foreground: 220 15% 55%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 20% 16%;
+    --input: 222 20% 16%;
+    --ring: 43 96% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Be Vietnam Pro: hỗ trợ tiếng Việt, in hoa đầy đủ */
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+}
+
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
+  }
+
+  /* Neon glow effects */
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2);
+  }
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4), 0 0 40px rgba(0, 212, 255, 0.2);
+  }
+  .glow-green {
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.4), 0 0 40px rgba(0, 255, 136, 0.2);
+  }
+  .glow-red {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4), 0 0 40px rgba(239, 68, 68, 0.2);
+  }
+
+  /* Hero gradient background - Estadio Azteca */
+  .hero-bg {
+    background:
+      linear-gradient(to bottom, rgba(245,247,250,0.85) 0%, rgba(245,247,250,0.92) 40%, rgba(245,247,250,0.98) 100%),
+      url('/azteca.png') center center / cover no-repeat fixed;
+    background-attachment: fixed;
+  }
+  
+  .dark .hero-bg {
+    background:
+      linear-gradient(to bottom, rgba(10,10,26,0.75) 0%, rgba(10,10,26,0.88) 40%, rgba(10,10,26,0.97) 100%),
+      radial-gradient(ellipse at top left, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(251, 191, 36, 0.06) 0%, transparent 50%),
+      url('/azteca.png') center center / cover no-repeat fixed;
+    background-attachment: fixed;
+  }
+
+  /* Auth page dùng azteca làm full hero */
+  .hero-bg-auth {
+    position: relative;
+    background:
+      linear-gradient(135deg, rgba(245,247,250,0.9) 0%, rgba(230,235,245,0.96) 100%),
+      url('/azteca.png') center center / cover no-repeat;
+    min-height: 100vh;
+  }
+  
+  .dark .hero-bg-auth {
+    background:
+      linear-gradient(135deg, rgba(10,10,26,0.85) 0%, rgba(20,10,40,0.92) 100%),
+      url('/azteca.png') center center / cover no-repeat;
+  }
+
+  /* Shimmer skeleton */
+  .skeleton {
+    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--secondary)) 50%, hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Prediction button base */
+  .pred-btn {
+    @apply relative flex flex-col items-center justify-center gap-1 px-4 py-3 rounded-xl border-2 border-transparent
+           transition-all duration-200 font-semibold text-sm cursor-pointer select-none;
+  }
+  .pred-btn:hover {
+    @apply scale-105;
+  }
+  .pred-btn.selected-home {
+    @apply border-neon-blue bg-neon-blue/10 text-neon-blue;
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  .pred-btn.selected-draw {
+    @apply border-gold-400 bg-gold-400/10 text-gold-400;
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+  }
+  .pred-btn.selected-away {
+    @apply border-neon-green bg-neon-green/10 text-neon-green;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+  }
+
+  /* Status badges */
+  .badge-live {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  .badge-upcoming {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+  .badge-finished {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30;
+  }
+
+  /* Gradient text */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-neon {
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
