@@ -276,6 +276,7 @@ export function MatchesPage() {
                                     <Link
                                       key={m.id}
                                       to={`/matches/${m.id}`}
+                                      title={`${m.home_team?.name || 'TBD'} vs ${m.away_team?.name || 'TBD'}\n🏆 Vòng: ${m.round || 'Chưa xác định'}\n📍 Sân: ${m.venue || 'Chưa xác định'}\n⏰ Giờ đấu: ${new Date(m.match_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}`}
                                       className={`flex flex-col items-center justify-center p-1 rounded-lg border text-[9px] w-24 transition-all hover:scale-[1.04]
                                         ${isLive
                                           ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold'
