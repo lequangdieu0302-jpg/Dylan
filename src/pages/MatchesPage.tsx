@@ -288,7 +288,7 @@ export function MatchesPage() {
                                           {m.home_team?.logo_url ? (
                                             <img src={m.home_team.logo_url} alt={homeCode} className="w-3 h-3 rounded-full object-cover border border-slate-300 dark:border-white/20 shrink-0" />
                                           ) : (
-                                            <span className="text-[7px] shrink-0">🏳️</span>
+                                            <div className="w-3 h-3 rounded-full bg-slate-350 dark:bg-slate-750 shrink-0 border border-slate-400 dark:border-slate-650" />
                                           )}
                                           <span className="truncate max-w-[20px]">{homeCode}</span>
                                           <span className="text-slate-400 dark:text-muted-foreground/40 font-normal text-[7px] shrink-0">v</span>
@@ -296,7 +296,7 @@ export function MatchesPage() {
                                           {m.away_team?.logo_url ? (
                                             <img src={m.away_team.logo_url} alt={awayCode} className="w-3 h-3 rounded-full object-cover border border-slate-300 dark:border-white/20 shrink-0" />
                                           ) : (
-                                            <span className="text-[7px] shrink-0">🏳️</span>
+                                            <div className="w-3 h-3 rounded-full bg-slate-350 dark:bg-slate-750 shrink-0 border border-slate-400 dark:border-slate-650" />
                                           )}
                                         </div>
                                         {isFinished ? (
@@ -325,7 +325,7 @@ export function MatchesPage() {
                                             {m.home_team?.logo_url ? (
                                               <img src={m.home_team.logo_url} alt={m.home_team.name} className="w-8 h-8 rounded-full object-cover border border-white/10" />
                                             ) : (
-                                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🏳️</div>
+                                              <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-800 border border-slate-400 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-500 dark:text-slate-400 font-bold shrink-0">?</div>
                                             )}
                                             <span className="text-[10px] font-bold truncate max-w-full text-slate-200">{m.home_team?.name}</span>
                                           </div>
@@ -336,7 +336,7 @@ export function MatchesPage() {
                                             {m.away_team?.logo_url ? (
                                               <img src={m.away_team.logo_url} alt={m.away_team.name} className="w-8 h-8 rounded-full object-cover border border-white/10" />
                                             ) : (
-                                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">🏳️</div>
+                                              <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-800 border border-slate-400 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-500 dark:text-slate-400 font-bold shrink-0">?</div>
                                             )}
                                             <span className="text-[10px] font-bold truncate max-w-full text-slate-200">{m.away_team?.name}</span>
                                           </div>
