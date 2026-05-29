@@ -24,12 +24,6 @@ const predictionColors = {
   away: 'text-neon-green border-neon-green/30 bg-neon-green/10',
 }
 
-const predictionLabels = {
-  home: 'Đội nhà win',
-  draw: 'Hoà',
-  away: 'Đội khách win',
-}
-
 export function MatchCard({ match, prediction, showCountdown = true }: MatchCardProps) {
   const status = statusConfig[match.status]
   const locked = isMatchLocked(match.match_time)
@@ -129,7 +123,13 @@ export function MatchCard({ match, prediction, showCountdown = true }: MatchCard
           {prediction && (
             <div className={`mt-3 flex items-center justify-center gap-1 py-1.5 rounded-lg border text-xs font-medium ${predictionColors[prediction.prediction]}`}>
               {prediction.used_hope_star && <span>⭐</span>}
-              Bạn đoán: {predictionLabels[prediction.prediction]}
+              Bạn đoán: {
+                prediction.prediction === 'home'
+                  ? `${match.home_team?.name || 'Đội nhà'} thắng`
+                  : prediction.prediction === 'away'
+                    ? `${match.away_team?.name || 'Đội khách'} thắng`
+                    : 'Hoà'
+              }
               {prediction.is_correct !== null && (
                 <span>{prediction.is_correct ? ' ✓' : ' ✗'}</span>
               )}
