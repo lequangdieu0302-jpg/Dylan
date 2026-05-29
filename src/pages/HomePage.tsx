@@ -12,6 +12,13 @@ import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/lib/supabase'
 import type { Match, LeaderboardEntry } from '@/types'
 
+async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ])
+}
+
 export function HomePage() {
   const { user } = useAuthStore()
   const [matches, setMatches] = useState<Match[]>([])
@@ -23,21 +30,50 @@ export function HomePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [m, lb, countRes] = await Promise.all([
-          getUpcomingMatches(6),
-          user?.company_id ? getCompanyLeaderboard(user.company_id) : Promise.resolve([]),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user')
-        ])
-        setMatches(m)
-        setLeaderboard(lb.slice(0, 5))
-        if (countRes.count !== null) {
-          setPlayerCount(countRes.count)
+        const matchesPromise = fetchWithTimeout(getUpcomingMatches(6))
+        const leaderboardPromise = user?.company_id 
+          ? fetchWithTimeout(getCompanyLeaderboard(user.company_id))
+          : Promise.resolve([])
+        const countPromise = fetchWithTimeout(
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user') as any
+        )
+
+        const [matchesResult, leaderboardResult, countResult] = await Promise.allSettled([
+          matchesPromise,
+          leaderboardPromise,
+          countPromise
+        ]) as any[]
+
+        if (matchesResult.status === 'fulfilled') {
+          setMatches(matchesResult.value)
         }
+        if (leaderboardResult.status === 'fulfilled') {
+          setLeaderboard(leaderboardResult.value.slice(0, 5))
+        }
+        if (countResult.status === 'fulfilled' && countResult.value && countResult.value.count !== null) {
+          setPlayerCount(countResult.value.count)
+        }
+      } catch (err) {
+        console.error('[HomePage] error in load:', err)
       } finally {
         setLoading(false)
       }
     }
+    
     load()
+
+    // Auto-revalidate on tab focus or network recovery
+    const handleRevalidate = () => {
+      load()
+    }
+
+    window.addEventListener('focus', handleRevalidate)
+    window.addEventListener('online', handleRevalidate)
+
+    return () => {
+      window.removeEventListener('focus', handleRevalidate)
+      window.removeEventListener('online', handleRevalidate)
+    }
   }, [user?.company_id])
 
   return (

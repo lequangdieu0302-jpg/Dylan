@@ -9,6 +9,13 @@ import type { Match, Prediction, MatchStatus } from '@/types'
 
 import { useMatchStore } from '@/stores/matchStore'
 
+async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ])
+}
+
 export function MatchesPage() {
   const { user } = useAuthStore()
   const { matches, setMatches, loading, setLoading } = useMatchStore()
@@ -24,21 +31,31 @@ export function MatchesPage() {
         setLoading(true)
       }
       try {
-        const data = await getMatches()
-        setMatches(data)
+        const matchesPromise = fetchWithTimeout(getMatches())
+        const predsPromise = user
+          ? fetchWithTimeout(
+              supabase
+                .from('predictions')
+                .select('*')
+                .eq('user_id', user.id) as any
+            )
+          : Promise.resolve({ data: [], error: null })
 
-        if (user) {
-          const { data: preds, error } = await supabase
-            .from('predictions')
-            .select('*')
-            .eq('user_id', user.id)
-          if (!error && preds) {
-            const predMap: Record<string, Prediction> = {}
-            preds.forEach((p) => {
-              predMap[p.match_id] = p as Prediction
-            })
-            setPredictions(predMap)
-          }
+        const [matchesResult, predsResult] = await Promise.allSettled([
+          matchesPromise,
+          predsPromise
+        ]) as any[]
+
+        if (matchesResult.status === 'fulfilled') {
+          setMatches(matchesResult.value)
+        }
+
+        if (predsResult.status === 'fulfilled' && predsResult.value && predsResult.value.data) {
+          const predMap: Record<string, Prediction> = {}
+          predsResult.value.data.forEach((p: any) => {
+            predMap[p.match_id] = p as Prediction
+          })
+          setPredictions(predMap)
         }
       } catch (err) {
         console.error('[MatchesPage] error in load:', err)
@@ -46,8 +63,22 @@ export function MatchesPage() {
         setLoading(false)
       }
     }
+
     load()
-  }, [user, setMatches, setLoading])
+
+    // Auto-revalidate on tab focus or network recovery
+    const handleRevalidate = () => {
+      load()
+    }
+
+    window.addEventListener('focus', handleRevalidate)
+    window.addEventListener('online', handleRevalidate)
+
+    return () => {
+      window.removeEventListener('focus', handleRevalidate)
+      window.removeEventListener('online', handleRevalidate)
+    }
+  }, [user, setMatches, setLoading, matches.length])
 
   // Extract unique dates in ascending order (YYYY-MM-DD)
   const uniqueDateStrings = Array.from(
