@@ -7,18 +7,22 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import type { Match, Prediction, MatchStatus } from '@/types'
 
+import { useMatchStore } from '@/stores/matchStore'
+
 export function MatchesPage() {
   const { user } = useAuthStore()
-  const [matches, setMatches] = useState<Match[]>([])
+  const { matches, setMatches, loading, setLoading } = useMatchStore()
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({})
   const [filter, setFilter] = useState<MatchStatus | 'all'>('all')
   const [selectedDate, setSelectedDate] = useState<string>('all')
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'list' | 'matrix'>('list')
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
+      if (matches.length === 0) {
+        setLoading(true)
+      }
       try {
         const data = await getMatches()
         setMatches(data)
@@ -43,7 +47,7 @@ export function MatchesPage() {
       }
     }
     load()
-  }, [user])
+  }, [user, setMatches, setLoading])
 
   // Extract unique dates in ascending order (YYYY-MM-DD)
   const uniqueDateStrings = Array.from(
