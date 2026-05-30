@@ -171,13 +171,13 @@ BEGIN
     v_company_id := NULL;
   END;
 
-  INSERT INTO profiles (id, username, company_id, role)
+  INSERT INTO public.profiles (id, username, company_id, role)
   VALUES (NEW.id, v_username, v_company_id, 'user')
   ON CONFLICT (id) DO NOTHING;  -- tránh lỗi nếu profile đã tồn tại
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
