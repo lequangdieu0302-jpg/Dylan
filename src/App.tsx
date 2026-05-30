@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Toaster } from '@/components/ui/toaster'
 import { Navbar } from '@/components/layout/Navbar'
 import { BottomNav } from '@/components/layout/BottomNav'
@@ -54,7 +54,11 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser } = useAuthStore()
+  // authReady blocks all routes from rendering until initAuth() finishes.
+  // Without this, pages render with user=null (guest mode) and never
+  // re-fetch data once the real user loads — causing blank tabs.
+  const [authReady, setAuthReady] = useState(false)
 
   const { theme } = useThemeStore()
 
@@ -68,54 +72,54 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    // Initialize auth state
+    // Initialize auth state — MUST call setAuthReady(true) in all code paths
     async function initAuth() {
-      setLoading(true)
-      const session = await getSession()
-      if (session?.user) {
-        const profile = await getProfile(session.user.id)
-        if (profile) {
-          setUser(profile)
+      try {
+        const session = await getSession()
+        if (session?.user) {
+          const profile = await getProfile(session.user.id)
+          if (profile) {
+            setUser(profile)
+          } else {
+            console.warn('[initAuth] Profile not found. Force logging out...')
+            const { clearUser } = useAuthStore.getState()
+            clearUser()
+            try { await supabase.auth.signOut() } catch (_) {}
+            const keysToRemove: string[] = []
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                keysToRemove.push(key)
+              }
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k))
+          }
         } else {
-          console.warn('[initAuth] Profile not found or invalid session. Force logging out...')
           const { clearUser } = useAuthStore.getState()
           clearUser()
-          try {
-            await supabase.auth.signOut()
-          } catch (e) {
-            // Ignore
-          }
-          const keysToRemove: string[] = []
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              keysToRemove.push(key)
-            }
-          }
-          keysToRemove.forEach(k => localStorage.removeItem(k))
         }
-      } else {
+      } catch (e) {
+        console.error('[initAuth] unexpected error:', e)
         const { clearUser } = useAuthStore.getState()
         clearUser()
+      } finally {
+        // Always unblock the routes regardless of outcome
+        setAuthReady(true)
       }
     }
     initAuth()
 
-    // Listen for auth changes
+    // Listen for auth changes (login / logout events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const profile = await getProfile(session.user.id)
         if (profile) {
           setUser(profile)
         } else {
-          console.warn('[onAuthStateChange] SIGNED_IN but profile not found. Force logging out...')
+          console.warn('[onAuthStateChange] SIGNED_IN but no profile. Logging out...')
           const { clearUser } = useAuthStore.getState()
           clearUser()
-          try {
-            await supabase.auth.signOut()
-          } catch (e) {
-            // Ignore
-          }
+          try { await supabase.auth.signOut() } catch (_) {}
           const keysToRemove: string[] = []
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i)
@@ -132,7 +136,20 @@ export default function App() {
     })
 
     return () => subscription.unsubscribe()
-  }, [setUser, setLoading])
+  }, [setUser])
+
+  // Show a full-screen spinner until auth is resolved.
+  // This prevents pages from rendering with wrong user state.
+  if (!authReady) {
+    return (
+      <div className="min-h-screen hero-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          <p className="text-sm text-muted-foreground animate-pulse">Đang tải...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter>
