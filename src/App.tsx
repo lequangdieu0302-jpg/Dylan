@@ -38,6 +38,16 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1">{children}</main>
+      <footer className="py-4 px-6 border-t border-white/5 bg-black/10 text-xs text-muted-foreground flex justify-between items-center pb-20 md:pb-4">
+        <span>© 2026 WC Predict</span>
+        <a 
+          href="mailto:lequangdieu0302@gmail.com" 
+          className="hover:text-primary transition-colors flex items-center gap-1.5"
+        >
+          <span>📧 Contact:</span>
+          <span className="underline">lequangdieu0302@gmail.com</span>
+        </a>
+      </footer>
       <BottomNav />
     </div>
   )

@@ -259,6 +259,17 @@ export function AuthPage() {
             </p>
           </div>
         </div>
+
+        {/* Contact Info */}
+        <div className="text-center mt-6 text-xs text-muted-foreground animate-fade-in">
+          <a 
+            href="mailto:lequangdieu0302@gmail.com" 
+            className="hover:text-primary transition-colors inline-flex items-center gap-1.5"
+          >
+            <span>📧 Liên hệ:</span>
+            <span className="underline">lequangdieu0302@gmail.com</span>
+          </a>
+        </div>
       </div>
     </div>
   )
