@@ -9,7 +9,7 @@ import type { Match, Prediction, MatchStatus } from '@/types'
 
 import { useMatchStore } from '@/stores/matchStore'
 
-async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
+async function fetchWithTimeout<T>(promise: Promise<T>, ms = 20000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
