@@ -78,33 +78,47 @@ export default function App() {
 
       // Helper: clears all Supabase auth tokens from localStorage
       function wipeLocalSession() {
-        const { clearUser } = useAuthStore.getState()
-        clearUser()
-        const keysToRemove: string[] = []
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-            keysToRemove.push(key)
+        try {
+          const { clearUser } = useAuthStore.getState()
+          clearUser()
+          const keysToRemove: string[] = []
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              keysToRemove.push(key)
+            }
           }
-        }
-        keysToRemove.forEach(k => localStorage.removeItem(k))
+          keysToRemove.forEach(k => localStorage.removeItem(k))
+        } catch (_) {}
       }
 
       // Race the entire auth flow against a 5-second timeout.
       // If Supabase hangs (slow network, cold start, etc.) we give up and
       // load the app as a guest so the page never spins forever.
       const authWork = async () => {
-        const session = await getSession()
-        if (session?.user) {
-          const profile = await getProfile(session.user.id)
-          if (profile) {
-            setUser(profile)
+        try {
+          const session = await getSession()
+          if (session?.user) {
+            try {
+              const profile = await getProfile(session.user.id)
+              if (profile) {
+                setUser(profile)
+              } else {
+                console.warn('[initAuth] Profile not found. Force logging out...')
+                wipeLocalSession()
+                try { await supabase.auth.signOut() } catch (_) {}
+              }
+            } catch (err) {
+              console.error('[initAuth] Profile fetch failed (timeout or net error) - loading as guest:', err)
+              const { clearUser } = useAuthStore.getState()
+              clearUser()
+            }
           } else {
-            console.warn('[initAuth] Profile not found. Force logging out...')
-            wipeLocalSession()
-            try { await supabase.auth.signOut() } catch (_) {}
+            const { clearUser } = useAuthStore.getState()
+            clearUser()
           }
-        } else {
+        } catch (err) {
+          console.error('[initAuth] Session fetch failed:', err)
           const { clearUser } = useAuthStore.getState()
           clearUser()
         }
@@ -130,22 +144,34 @@ export default function App() {
     // Listen for auth changes (login / logout events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const profile = await getProfile(session.user.id)
-        if (profile) {
-          setUser(profile)
-        } else {
-          console.warn('[onAuthStateChange] SIGNED_IN but no profile. Logging out...')
-          const { clearUser } = useAuthStore.getState()
-          clearUser()
-          try { await supabase.auth.signOut() } catch (_) {}
-          const keysToRemove: string[] = []
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              keysToRemove.push(key)
-            }
+        // Skip duplicate profile fetch if user is already loaded in store
+        const currentStoreUser = useAuthStore.getState().user
+        if (currentStoreUser && currentStoreUser.id === session.user.id) {
+          return
+        }
+
+        try {
+          const profile = await getProfile(session.user.id)
+          if (profile) {
+            setUser(profile)
+          } else {
+            console.warn('[onAuthStateChange] SIGNED_IN but no profile in db. Logging out...')
+            const { clearUser } = useAuthStore.getState()
+            clearUser()
+            try { await supabase.auth.signOut() } catch (_) {}
+            try {
+              const keysToRemove: string[] = []
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                  keysToRemove.push(key)
+                }
+              }
+              keysToRemove.forEach(k => localStorage.removeItem(k))
+            } catch (_) {}
           }
-          keysToRemove.forEach(k => localStorage.removeItem(k))
+        } catch (err) {
+          console.error('[onAuthStateChange] Profile fetch failed (transient error, keeping session):', err)
         }
       } else if (event === 'SIGNED_OUT') {
         const { clearUser } = useAuthStore.getState()

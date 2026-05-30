@@ -87,7 +87,12 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     .select('*, company:companies(*)')
     .eq('id', userId)
     .single()
-  if (error) return null
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null
+    }
+    throw error
+  }
   return data as Profile
 }
 
