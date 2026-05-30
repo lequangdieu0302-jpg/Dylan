@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { RotateCcw, Ban, Building2 } from 'lucide-react'
+import { RotateCcw, Ban, Building2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { HopeStars } from '@/components/ui/HopeStars'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/toaster'
-import { getAllUsers, banUser, resetHopeStars, moveUserCompany, getCompanies } from '@/services/adminService'
+import { getAllUsers, banUser, resetHopeStars, moveUserCompany, getCompanies, deleteUser } from '@/services/adminService'
 import { formatMoney, getAvatarFallback } from '@/lib/utils'
 import type { Profile, Company } from '@/types'
 
@@ -119,14 +119,31 @@ export function AdminUsers() {
                               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                             {u.role !== 'admin' && (
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
-                                onClick={async () => {
-                                  await banUser(u.id)
-                                  toast.success(`Đã cập nhật role ${u.username}`)
-                                  reload()
-                                }}>
-                                <Ban className="h-3.5 w-3.5" />
-                              </Button>
+                              <>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
+                                  title="Ban user"
+                                  onClick={async () => {
+                                    await banUser(u.id)
+                                    toast.success(`Đã cập nhật role ${u.username}`)
+                                    reload()
+                                  }}>
+                                  <Ban className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                                  title="Xóa người dùng"
+                                  onClick={async () => {
+                                    if (!confirm(`Xóa hồ sơ người dùng ${u.username}? Mọi dự đoán của người này cũng sẽ bị xóa.`)) return
+                                    try {
+                                      await deleteUser(u.id)
+                                      toast.success(`Đã xóa người dùng ${u.username}`)
+                                      reload()
+                                    } catch (e: any) {
+                                      toast.error('Lỗi khi xóa', e.message || String(e))
+                                    }
+                                  }}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>

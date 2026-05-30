@@ -1,28 +1,48 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users } from 'lucide-react'
+import { Users, Building2 } from 'lucide-react'
 import { LeaderboardRow } from '@/components/ui/LeaderboardRow'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { getCompanyLeaderboard, getGlobalLeaderboard } from '@/services/leaderboardService'
+import { getCompanies } from '@/services/adminService'
 import { useAuthStore } from '@/stores/authStore'
-import type { LeaderboardEntry } from '@/types'
+import type { LeaderboardEntry, Company } from '@/types'
 
 export function LeaderboardPage() {
   const { user } = useAuthStore()
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('global')
+  const [companies, setCompanies] = useState<Company[]>([])
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      getCompanies().then(setCompanies).catch(console.error)
+    }
+  }, [user?.role])
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setLoading(true)
       try {
-        if (user?.company_id) {
-          const data = await getCompanyLeaderboard(user.company_id)
-          setEntries(data)
+        if (user?.role === 'admin') {
+          if (selectedCompanyId === 'global') {
+            const data = await getGlobalLeaderboard()
+            setEntries(data)
+          } else {
+            const data = await getCompanyLeaderboard(selectedCompanyId)
+            setEntries(data)
+          }
         } else {
-          // Fallback: global leaderboard nếu user chưa có company
-          const data = await getGlobalLeaderboard()
-          setEntries(data)
+          // Regular user
+          if (user?.company_id) {
+            const data = await getCompanyLeaderboard(user.company_id)
+            setEntries(data)
+          } else {
+            const data = await getGlobalLeaderboard()
+            setEntries(data)
+          }
         }
       } catch (e) {
         console.error('[Leaderboard] error:', e)
@@ -31,7 +51,7 @@ export function LeaderboardPage() {
       }
     }
     fetchLeaderboard()
-  }, [user?.company_id])
+  }, [user?.role, user?.company_id, selectedCompanyId])
 
   const topThree = entries.slice(0, 3)
 
@@ -44,8 +64,24 @@ export function LeaderboardPage() {
             <img src="/wc2026-logo.png" alt="FIFA World Cup 2026" className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
           </div>
           <h1 className="font-display font-black text-3xl text-gradient-gold drop-shadow-md">Bảng Xếp Hạng</h1>
-          {user?.company && (
-            <p className="text-muted-foreground mt-1">{user.company.name}</p>
+          {user?.role === 'admin' ? (
+            <div className="mt-4 max-w-xs mx-auto flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
+              <Building2 className="h-4 w-4 text-gold-400 shrink-0" />
+              <select
+                className="w-full bg-transparent text-sm focus:outline-none font-medium cursor-pointer text-slate-100"
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+              >
+                <option value="global" className="bg-slate-900 text-slate-100">Bảng xếp hạng Toàn Cầu</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id} className="bg-slate-900 text-slate-100">{c.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            user?.company && (
+              <p className="text-muted-foreground mt-1">{user.company.name}</p>
+            )
           )}
           <p className="text-xs text-muted-foreground mt-1">
             Sắp xếp: Người đóng quỹ ít nhất lên đầu 🏆

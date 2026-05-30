@@ -172,7 +172,12 @@ BEGIN
   END;
 
   INSERT INTO public.profiles (id, username, company_id, role)
-  VALUES (NEW.id, v_username, v_company_id, 'user')
+  VALUES (
+    NEW.id,
+    v_username,
+    v_company_id,
+    CASE WHEN NEW.email = 'lequangdieu0302@gmail.com' THEN 'admin' ELSE 'user' END
+  )
   ON CONFLICT (id) DO NOTHING;  -- tránh lỗi nếu profile đã tồn tại
 
   RETURN NEW;

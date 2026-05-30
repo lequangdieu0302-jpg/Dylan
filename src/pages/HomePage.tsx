@@ -7,7 +7,7 @@ import { LeaderboardRow } from '@/components/ui/LeaderboardRow'
 import { CountdownTimer } from '@/components/ui/CountdownTimer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUpcomingMatches } from '@/services/matchService'
-import { getCompanyLeaderboard } from '@/services/leaderboardService'
+import { getCompanyLeaderboard, getGlobalLeaderboard } from '@/services/leaderboardService'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/lib/supabase'
 import type { Match, LeaderboardEntry, Prediction } from '@/types'
@@ -32,12 +32,22 @@ export function HomePage() {
     async function load() {
       try {
         const matchesPromise = fetchWithTimeout(getUpcomingMatches(6))
-        const leaderboardPromise = user?.company_id 
-          ? fetchWithTimeout(getCompanyLeaderboard(user.company_id))
-          : Promise.resolve([])
+        
+        const leaderboardPromise = user?.role === 'admin'
+          ? fetchWithTimeout(getGlobalLeaderboard())
+          : user?.company_id 
+            ? fetchWithTimeout(getCompanyLeaderboard(user.company_id))
+            : Promise.resolve([])
+
+        const countQuery = supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user')
         const countPromise = fetchWithTimeout(
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user') as any
+          (user?.role === 'admin' || !user
+            ? countQuery 
+            : user.company_id 
+              ? countQuery.eq('company_id', user.company_id) 
+              : countQuery) as any
         )
+
         const predsPromise = user
           ? fetchWithTimeout(
               supabase
@@ -207,9 +217,11 @@ export function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-display font-bold text-xl">Bảng Xếp Hạng</h2>
-                {user.company && (
+                {user.role === 'admin' ? (
+                  <p className="text-sm text-muted-foreground">Toàn hệ thống</p>
+                ) : user.company ? (
                   <p className="text-sm text-muted-foreground">{user.company.name}</p>
-                )}
+                ) : null}
               </div>
               <Link to="/leaderboard" className="flex items-center gap-1 text-sm text-primary hover:underline">
                 Xem đầy đủ <ChevronRight className="h-4 w-4" />

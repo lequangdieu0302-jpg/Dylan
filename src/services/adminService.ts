@@ -118,6 +118,11 @@ export async function moveUserCompany(userId: string, companyId: string) {
   if (error) throw error
 }
 
+export async function deleteUser(userId: string) {
+  const { error } = await supabase.from('profiles').delete().eq('id', userId)
+  if (error) throw error
+}
+
 // ── Matches Admin ──────────────────────────────────────────────────────
 export async function adminGetAllMatches(): Promise<Match[]> {
   const { data, error } = await supabase
