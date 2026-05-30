@@ -1,17 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { getMatchById, updateMatch, setMatchResult } from '@/services/matchService'
+import { getMatchById } from '@/services/matchService'
 import { getPredictionForMatch } from '@/services/predictionService'
 import { useAuthStore } from '@/stores/authStore'
 import { PredictionCard } from '@/components/ui/PredictionCard'
 import { CountdownTimer } from '@/components/ui/CountdownTimer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/toaster'
 import { Trophy } from 'lucide-react'
 import { formatMatchTime } from '@/lib/utils'
 import type { Match, Prediction } from '@/types'
@@ -23,12 +18,6 @@ export function MatchDetailPage() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Edit form states
-  const [editStatus, setEditStatus] = useState<Match['status']>('upcoming')
-  const [editHomeScore, setEditHomeScore] = useState<string>('')
-  const [editAwayScore, setEditAwayScore] = useState<string>('')
-  const [isUpdating, setIsUpdating] = useState(false)
-
   const load = useCallback(async () => {
     if (!id) return
     try {
@@ -38,9 +27,6 @@ export function MatchDetailPage() {
       ])
       if (m) {
         setMatch(m)
-        setEditStatus(m.status)
-        setEditHomeScore(m.home_score !== null ? String(m.home_score) : '')
-        setEditAwayScore(m.away_score !== null ? String(m.away_score) : '')
       }
       setPrediction(p)
     } catch (e) {
@@ -54,38 +40,6 @@ export function MatchDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
-
-  const handleUpdate = async () => {
-    if (!match) return
-    setIsUpdating(true)
-    try {
-      const homeVal = editHomeScore !== '' ? parseInt(editHomeScore, 10) : null
-      const awayVal = editAwayScore !== '' ? parseInt(editAwayScore, 10) : null
-
-      if (editStatus === 'finished') {
-        if (homeVal === null || awayVal === null || isNaN(homeVal) || isNaN(awayVal)) {
-          toast.error('Vui lòng nhập tỷ số hợp lệ khi kết thúc trận đấu!')
-          setIsUpdating(false)
-          return
-        }
-        await setMatchResult(match.id, homeVal, awayVal)
-        toast.success('Đã cập nhật kết quả và tính điểm!')
-      } else {
-        await updateMatch(match.id, {
-          status: editStatus,
-          home_score: homeVal,
-          away_score: awayVal,
-        })
-        toast.success('Đã cập nhật thông tin trận đấu!')
-      }
-      await load()
-    } catch (error) {
-      const err = error as Error
-      toast.error('Lỗi khi cập nhật:', err.message || String(error))
-    } finally {
-      setIsUpdating(false)
-    }
-  }
 
   if (loading) return (
     <div className="container mx-auto px-4 py-8 space-y-4">
@@ -170,83 +124,12 @@ export function MatchDetailPage() {
         </div>
 
         {/* Prediction */}
-        {user ? (
-          <PredictionCard
-            match={match}
-            existingPrediction={prediction}
-            onSaved={(p) => setPrediction(p)}
-          />
-        ) : (
-          <div className="glass-card p-6 text-center text-muted-foreground mb-4">
-            <p>Đăng nhập để dự đoán trận đấu này</p>
-          </div>
-        )}
+        <PredictionCard
+          match={match}
+          existingPrediction={prediction}
+          onSaved={(p) => setPrediction(p)}
+        />
 
-        {/* Quick Update Match (Open to everyone) */}
-        <Card className="glass-card border-yellow-500/20">
-          <CardHeader>
-            <CardTitle className="text-yellow-400 text-lg flex items-center gap-2">
-              ⚙️ Cập nhật trạng thái & Tỷ số
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              (Tính năng này được mở công khai để ai cũng cập nhật được theo yêu cầu)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="edit-status">Trạng thái</Label>
-                <select
-                  id="edit-status"
-                  className="flex h-11 w-full rounded-xl border border-input bg-background/50 px-4 py-2 text-sm mt-1"
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value as Match['status'])}
-                >
-                  <option value="upcoming">Sắp diễn ra</option>
-                  <option value="live">LIVE</option>
-                  <option value="finished">Kết thúc</option>
-                  <option value="cancelled">Huỷ</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="edit-home-score">Tỷ số {match.home_team?.name ?? 'Đội nhà'}</Label>
-                  <Input
-                    id="edit-home-score"
-                    type="number"
-                    min={0}
-                    className="mt-1"
-                    placeholder="—"
-                    disabled={editStatus === 'upcoming' || editStatus === 'cancelled'}
-                    value={editHomeScore}
-                    onChange={(e) => setEditHomeScore(e.target.value)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="edit-away-score">Tỷ số {match.away_team?.name ?? 'Đội khách'}</Label>
-                  <Input
-                    id="edit-away-score"
-                    type="number"
-                    min={0}
-                    className="mt-1"
-                    placeholder="—"
-                    disabled={editStatus === 'upcoming' || editStatus === 'cancelled'}
-                    value={editAwayScore}
-                    onChange={(e) => setEditAwayScore(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            <Button
-              className="w-full text-black font-bold"
-              variant="gold"
-              disabled={isUpdating}
-              onClick={handleUpdate}
-            >
-              {isUpdating ? 'Đang cập nhật...' : 'Cập nhật trận đấu'}
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

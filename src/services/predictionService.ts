@@ -64,3 +64,24 @@ export async function deletePrediction(userId: string, matchId: string) {
     .eq('match_id', matchId)
   if (error) throw error
 }
+
+export async function getPredictionsForMatch(matchId: string): Promise<Prediction[]> {
+  const { data, error } = await supabase
+    .from('predictions')
+    .select(`
+      *,
+      profile:profiles(
+        id,
+        username,
+        avatar_url,
+        company:companies(name)
+      )
+    `)
+    .eq('match_id', matchId)
+  if (error) {
+    console.error('[getPredictionsForMatch] error:', error)
+    return []
+  }
+  return data as unknown as Prediction[]
+}
+

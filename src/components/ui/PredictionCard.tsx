@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Star, Lock, CheckCircle, XCircle, Trophy, Handshake } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Star, Lock, CheckCircle, XCircle, Trophy, Handshake, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { submitPrediction } from '@/services/predictionService'
+import { submitPrediction, getPredictionsForMatch } from '@/services/predictionService'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/components/ui/toaster'
 import { isMatchLocked, formatMoney } from '@/lib/utils'
@@ -16,11 +17,35 @@ interface PredictionCardProps {
 
 export function PredictionCard({ match, existingPrediction, onSaved }: PredictionCardProps) {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   const locked = isMatchLocked(match.match_time)
 
   const [selected, setSelected] = useState<PredictionChoice | null>(existingPrediction?.prediction ?? null)
   const [useStar, setUseStar] = useState(existingPrediction?.used_hope_star ?? false)
   const [saving, setSaving] = useState(false)
+
+  const [voters, setVoters] = useState<Prediction[]>([])
+  const [votersLoading, setVotersLoading] = useState(true)
+
+  const loadVoters = async () => {
+    try {
+      const list = await getPredictionsForMatch(match.id)
+      setVoters(list)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setVotersLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadVoters()
+  }, [match.id])
+
+  useEffect(() => {
+    setSelected(existingPrediction?.prediction ?? null)
+    setUseStar(existingPrediction?.used_hope_star ?? false)
+  }, [existingPrediction])
 
   // Tên đội thật thay vì "Đội nhà / Đội khách"
   const homeName = match.home_team?.name || 'Đội nhà'
@@ -32,6 +57,15 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
     { value: 'away', label: awayName, sublabel: 'Thắng',  color: 'selected-away' },
   ]
 
+  const homeVoters = voters.filter(v => v.prediction === 'home')
+  const drawVoters = voters.filter(v => v.prediction === 'draw')
+  const awayVoters = voters.filter(v => v.prediction === 'away')
+
+  const totalVotes = voters.length
+  const homePct = totalVotes > 0 ? Math.round((homeVoters.length / totalVotes) * 100) : 0
+  const drawPct = totalVotes > 0 ? Math.round((drawVoters.length / totalVotes) * 100) : 0
+  const awayPct = totalVotes > 0 ? Math.round((awayVoters.length / totalVotes) * 100) : 0
+
   const handleSubmit = async () => {
     if (!user || !selected) return
     if (locked) { toast.error('Trận đấu đã bắt đầu!'); return }
@@ -42,6 +76,7 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
       const pred = await submitPrediction(user.id, match.id, selected, useStar)
       toast.success('🎉 Dự đoán đã được lưu!', useStar ? 'Đã dùng 1 sao hy vọng' : undefined)
       onSaved?.(pred)
+      loadVoters()
     } catch (e) {
       toast.error('Lưu thất bại', String(e))
     } finally {
@@ -54,7 +89,7 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
     return useStar ? 20000 : 10000
   }
 
-  const canPredict = !locked && match.status !== 'finished' && match.status !== 'cancelled'
+  const canPredict = !!user && !locked && match.status !== 'finished' && match.status !== 'cancelled'
 
   return (
     <div className="glass-card p-5 space-y-4">
@@ -218,6 +253,191 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
           Trận đã bắt đầu, không thể dự đoán
         </div>
       )}
+
+      {/* Nút đăng nhập cho khách */}
+      {!user && (
+        <Button
+          onClick={() => navigate('/auth')}
+          className="w-full font-bold text-base h-12 flex items-center justify-center gap-2"
+          variant="gold"
+          size="lg"
+        >
+          <LogIn className="h-5 w-5" /> Đăng nhập để dự đoán
+        </Button>
+      )}
+
+      {/* Thống kê bình chọn từ cộng đồng */}
+      <div className="space-y-4 pt-5 mt-3 border-t border-white/5">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gradient-gold">Bình chọn từ cộng đồng</h4>
+          <span className="text-xs text-muted-foreground">{totalVotes} lượt bình chọn</span>
+        </div>
+
+        {votersLoading ? (
+          <div className="flex flex-col gap-2 py-4">
+            <div className="h-3 w-full bg-white/5 rounded-full animate-pulse" />
+            <div className="h-4 w-1/3 bg-white/5 rounded animate-pulse" />
+          </div>
+        ) : totalVotes > 0 ? (
+          <div className="space-y-4">
+            {/* Segmented bar */}
+            <div className="h-3 w-full rounded-full overflow-hidden flex bg-white/5 border border-white/10 relative">
+              {homePct > 0 && (
+                <div 
+                  style={{ width: `${homePct}%` }} 
+                  className="bg-gradient-to-r from-blue-500/80 to-cyan-500/80 h-full hover:opacity-90 transition-all duration-300 cursor-pointer"
+                  title={`${homeName}: ${homeVoters.length} lượt (${homePct}%)`}
+                />
+              )}
+              {drawPct > 0 && (
+                <div 
+                  style={{ width: `${drawPct}%` }} 
+                  className="bg-gradient-to-r from-gray-500/80 to-gray-600/80 h-full hover:opacity-90 transition-all duration-300 cursor-pointer"
+                  title={`Hòa: ${drawVoters.length} lượt (${drawPct}%)`}
+                />
+              )}
+              {awayPct > 0 && (
+                <div 
+                  style={{ width: `${awayPct}%` }} 
+                  className="bg-gradient-to-r from-red-500/80 to-pink-500/80 h-full hover:opacity-90 transition-all duration-300 cursor-pointer"
+                  title={`${awayName}: ${awayVoters.length} lượt (${awayPct}%)`}
+                />
+              )}
+            </div>
+
+            {/* Percentages row */}
+            <div className="grid grid-cols-3 text-center text-xs font-semibold">
+              <div className="text-blue-400">
+                <span className="block text-base font-black">{homePct}%</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate block max-w-full px-1">{homeName}</span>
+              </div>
+              <div className="text-gray-400 border-x border-white/5">
+                <span className="block text-base font-black">{drawPct}%</span>
+                <span className="text-[10px] text-muted-foreground font-medium block">Hòa</span>
+              </div>
+              <div className="text-red-400">
+                <span className="block text-base font-black">{awayPct}%</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate block max-w-full px-1">{awayName}</span>
+              </div>
+            </div>
+
+            {/* Voter Lists grouped by Choice */}
+            <div className="space-y-4 mt-4">
+              {/* Home Voters */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-blue-400/80 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span>{homeName} ({homeVoters.length})</span>
+                </div>
+                {homeVoters.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {homeVoters.map((v) => (
+                      <div 
+                        key={v.id} 
+                        className={cn(
+                          "flex items-center gap-1.5 bg-blue-500/5 border rounded-full pl-1 pr-2.5 py-0.5 text-xs text-foreground/80 transition-colors hover:bg-blue-500/10",
+                          v.used_hope_star ? "border-gold-500/30 bg-gold-500/5 hover:bg-gold-500/10" : "border-white/10"
+                        )}
+                        title={v.profile?.company?.name ? `Công ty: ${v.profile.company.name}` : undefined}
+                      >
+                        {v.profile?.avatar_url ? (
+                          <img src={v.profile.avatar_url} className="w-4.5 h-4.5 rounded-full object-cover shrink-0" alt="" />
+                        ) : (
+                          <span className="w-4.5 h-4.5 rounded-full bg-blue-500/20 text-blue-300 font-bold flex items-center justify-center text-[9px] shrink-0">
+                            {v.profile?.username?.[0]?.toUpperCase() ?? '?'}
+                          </span>
+                        )}
+                        <span className="truncate max-w-[100px]">{v.profile?.username ?? 'Ẩn danh'}</span>
+                        {v.used_hope_star && (
+                          <span className="text-[10px] text-gold-400 filter drop-shadow-[0_0_2px_rgba(234,179,8,0.5)]">⭐</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground/60 italic pl-3">Chưa có ai chọn</div>
+                )}
+              </div>
+
+              {/* Draw Voters */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                  <span>Hòa ({drawVoters.length})</span>
+                </div>
+                {drawVoters.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {drawVoters.map((v) => (
+                      <div 
+                        key={v.id} 
+                        className={cn(
+                          "flex items-center gap-1.5 bg-gray-500/5 border rounded-full pl-1 pr-2.5 py-0.5 text-xs text-foreground/80 transition-colors hover:bg-gray-500/10",
+                          v.used_hope_star ? "border-gold-500/30 bg-gold-500/5 hover:bg-gold-500/10" : "border-white/10"
+                        )}
+                        title={v.profile?.company?.name ? `Công ty: ${v.profile.company.name}` : undefined}
+                      >
+                        {v.profile?.avatar_url ? (
+                          <img src={v.profile.avatar_url} className="w-4.5 h-4.5 rounded-full object-cover shrink-0" alt="" />
+                        ) : (
+                          <span className="w-4.5 h-4.5 rounded-full bg-gray-500/20 text-gray-300 font-bold flex items-center justify-center text-[9px] shrink-0">
+                            {v.profile?.username?.[0]?.toUpperCase() ?? '?'}
+                          </span>
+                        )}
+                        <span className="truncate max-w-[100px]">{v.profile?.username ?? 'Ẩn danh'}</span>
+                        {v.used_hope_star && (
+                          <span className="text-[10px] text-gold-400 filter drop-shadow-[0_0_2px_rgba(234,179,8,0.5)]">⭐</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground/60 italic pl-3">Chưa có ai chọn</div>
+                )}
+              </div>
+
+              {/* Away Voters */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-red-400/80 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <span>{awayName} ({awayVoters.length})</span>
+                </div>
+                {awayVoters.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {awayVoters.map((v) => (
+                      <div 
+                        key={v.id} 
+                        className={cn(
+                          "flex items-center gap-1.5 bg-red-500/5 border rounded-full pl-1 pr-2.5 py-0.5 text-xs text-foreground/80 transition-colors hover:bg-red-500/10",
+                          v.used_hope_star ? "border-gold-500/30 bg-gold-500/5 hover:bg-gold-500/10" : "border-white/10"
+                        )}
+                        title={v.profile?.company?.name ? `Công ty: ${v.profile.company.name}` : undefined}
+                      >
+                        {v.profile?.avatar_url ? (
+                          <img src={v.profile.avatar_url} className="w-4.5 h-4.5 rounded-full object-cover shrink-0" alt="" />
+                        ) : (
+                          <span className="w-4.5 h-4.5 rounded-full bg-red-500/20 text-red-300 font-bold flex items-center justify-center text-[9px] shrink-0">
+                            {v.profile?.username?.[0]?.toUpperCase() ?? '?'}
+                          </span>
+                        )}
+                        <span className="truncate max-w-[100px]">{v.profile?.username ?? 'Ẩn danh'}</span>
+                        {v.used_hope_star && (
+                          <span className="text-[10px] text-gold-400 filter drop-shadow-[0_0_2px_rgba(234,179,8,0.5)]">⭐</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground/60 italic pl-3">Chưa có ai chọn</div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-xs text-muted-foreground/50 border border-dashed border-white/5 rounded-xl bg-white/1">
+            Chưa có lượt bình chọn nào cho trận đấu này. Hãy là người đầu tiên!
+          </div>
+        )}
+      </div>
     </div>
   )
 }

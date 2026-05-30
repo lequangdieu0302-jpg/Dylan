@@ -44,10 +44,6 @@ export function Navbar() {
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center group-hover:scale-110 transition-transform">
             <img src="/wc2026-icon.png" alt="WC2026" className="w-9 h-9 object-contain" />
           </div>
-          <div className="hidden sm:flex flex-col leading-none">
-            <span className="font-display font-black text-base text-gradient-gold tracking-tight">WC Predict</span>
-            <span className="text-[10px] text-muted-foreground font-medium tracking-widest uppercase">2026</span>
-          </div>
         </Link>
 
         {/* Desktop Nav */}
