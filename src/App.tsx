@@ -72,9 +72,28 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    // Initialize auth state — MUST call setAuthReady(true) in all code paths
+    // Initialize auth state — has a 5s hard timeout so the spinner never hangs
     async function initAuth() {
-      try {
+      const TIMEOUT_MS = 5000
+
+      // Helper: clears all Supabase auth tokens from localStorage
+      function wipeLocalSession() {
+        const { clearUser } = useAuthStore.getState()
+        clearUser()
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+      }
+
+      // Race the entire auth flow against a 5-second timeout.
+      // If Supabase hangs (slow network, cold start, etc.) we give up and
+      // load the app as a guest so the page never spins forever.
+      const authWork = async () => {
         const session = await getSession()
         if (session?.user) {
           const profile = await getProfile(session.user.id)
@@ -82,28 +101,27 @@ export default function App() {
             setUser(profile)
           } else {
             console.warn('[initAuth] Profile not found. Force logging out...')
-            const { clearUser } = useAuthStore.getState()
-            clearUser()
+            wipeLocalSession()
             try { await supabase.auth.signOut() } catch (_) {}
-            const keysToRemove: string[] = []
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i)
-              if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                keysToRemove.push(key)
-              }
-            }
-            keysToRemove.forEach(k => localStorage.removeItem(k))
           }
         } else {
           const { clearUser } = useAuthStore.getState()
           clearUser()
         }
+      }
+
+      try {
+        await Promise.race([
+          authWork(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('initAuth timeout')), TIMEOUT_MS)
+          ),
+        ])
       } catch (e) {
-        console.error('[initAuth] unexpected error:', e)
-        const { clearUser } = useAuthStore.getState()
-        clearUser()
+        console.warn('[initAuth] timed out or errored — loading as guest:', e)
+        wipeLocalSession()
       } finally {
-        // Always unblock the routes regardless of outcome
+        // Always unblock the routes — page loads in max TIMEOUT_MS
         setAuthReady(true)
       }
     }
