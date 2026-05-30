@@ -16,6 +16,8 @@ async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
   ])
 }
 
+import { DbErrorPanel } from '@/components/ui/DbErrorPanel'
+
 export function MatchesPage() {
   const { user } = useAuthStore()
   const { matches, setMatches, loading, setLoading } = useMatchStore()
@@ -24,6 +26,8 @@ export function MatchesPage() {
   const [selectedDate, setSelectedDate] = useState<string>('all')
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'list' | 'matrix'>('list')
+  const [hasError, setHasError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -31,6 +35,7 @@ export function MatchesPage() {
         setLoading(true)
       }
       try {
+        setHasError(false)
         const matchesPromise = fetchWithTimeout(getMatches())
         const predsPromise = user
           ? fetchWithTimeout(
@@ -48,6 +53,9 @@ export function MatchesPage() {
 
         if (matchesResult.status === 'fulfilled') {
           setMatches(matchesResult.value)
+        } else {
+          console.error('[MatchesPage] Failed to fetch matches:', matchesResult.reason)
+          setHasError(true)
         }
 
         if (predsResult.status === 'fulfilled' && predsResult.value && predsResult.value.data) {
@@ -59,6 +67,7 @@ export function MatchesPage() {
         }
       } catch (err) {
         console.error('[MatchesPage] error in load:', err)
+        setHasError(true)
       } finally {
         setLoading(false)
       }
@@ -78,7 +87,7 @@ export function MatchesPage() {
       window.removeEventListener('focus', handleRevalidate)
       window.removeEventListener('online', handleRevalidate)
     }
-  }, [user, setMatches, setLoading, matches.length])
+  }, [user, setMatches, setLoading, matches.length, retryTrigger])
 
   // Extract unique dates in ascending order (YYYY-MM-DD)
   const uniqueDateStrings = Array.from(
@@ -234,7 +243,9 @@ export function MatchesPage() {
         )}
 
         {/* Content Area */}
-        {loading ? (
+        {hasError ? (
+          <DbErrorPanel onRetry={() => setRetryTrigger(prev => prev + 1)} />
+        ) : loading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-52" />)}
           </div>

@@ -10,6 +10,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Missing Supabase env vars. Check .env.local')
 }
 
+let activeRefreshPromise: Promise<{ data: { session: any }; error: any }> | null = null
+
+function getSharedRefreshPromise() {
+  if (!activeRefreshPromise) {
+    activeRefreshPromise = supabase.auth.refreshSession().finally(() => {
+      activeRefreshPromise = null
+    })
+  }
+  return activeRefreshPromise
+}
+
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-key',
@@ -58,8 +69,8 @@ export const supabase = createClient(
                 return fetch(url, { ...options, headers: reqHeaders })
               }
 
-              // Attempt to refresh the Supabase session
-              const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+              // Attempt to refresh the Supabase session (shared to prevent concurrent collisions)
+              const { data: { session }, error: refreshError } = await getSharedRefreshPromise()
 
               if (session && !refreshError) {
                 console.log('[Supabase Client] Session refreshed successfully. Retrying original request...')

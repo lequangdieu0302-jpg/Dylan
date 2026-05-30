@@ -19,6 +19,8 @@ async function fetchWithTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
   ])
 }
 
+import { DbErrorPanel } from '@/components/ui/DbErrorPanel'
+
 export function HomePage() {
   const { user } = useAuthStore()
   const [matches, setMatches] = useState<Match[]>([])
@@ -26,11 +28,14 @@ export function HomePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [playerCount, setPlayerCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [retryTrigger, setRetryTrigger] = useState(0)
   const nextMatch = matches.find(m => m.status === 'upcoming' || m.status === 'live')
 
   useEffect(() => {
     async function load() {
       try {
+        setHasError(false)
         const matchesPromise = fetchWithTimeout(getUpcomingMatches(6))
         
         const leaderboardPromise = user?.role === 'admin'
@@ -66,10 +71,18 @@ export function HomePage() {
 
         if (matchesResult.status === 'fulfilled') {
           setMatches(matchesResult.value)
+        } else {
+          console.error('[HomePage] matches load rejected:', matchesResult.reason)
+          setHasError(true)
         }
+        
         if (leaderboardResult.status === 'fulfilled') {
           setLeaderboard(leaderboardResult.value.slice(0, 5))
+        } else if (user) {
+          console.error('[HomePage] leaderboard load rejected:', leaderboardResult.reason)
+          setHasError(true)
         }
+
         if (countResult.status === 'fulfilled' && countResult.value && countResult.value.count !== null) {
           setPlayerCount(countResult.value.count)
         }
@@ -82,6 +95,7 @@ export function HomePage() {
         }
       } catch (err) {
         console.error('[HomePage] error in load:', err)
+        setHasError(true)
       } finally {
         setLoading(false)
       }
@@ -101,7 +115,7 @@ export function HomePage() {
       window.removeEventListener('focus', handleRevalidate)
       window.removeEventListener('online', handleRevalidate)
     }
-  }, [user?.company_id])
+  }, [user?.company_id, retryTrigger])
 
   return (
     <div className="min-h-screen hero-bg">
@@ -189,65 +203,71 @@ export function HomePage() {
         </section>
       )}
 
-      <div className="container mx-auto px-4 pb-24 md:pb-12 grid md:grid-cols-2 gap-8">
-        {/* Upcoming matches */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-xl">Trận sắp diễn ra</h2>
-            <Link to="/matches" className="flex items-center gap-1 text-sm text-primary hover:underline">
-              Xem tất cả <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {loading
-              ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40" />)
-              : matches.slice(0, 3).map((m) => <MatchCard key={m.id} match={m} prediction={predictions[m.id] ?? null} />)
-            }
-            {!loading && matches.length === 0 && (
-              <div className="glass-card p-8 text-center text-muted-foreground">
-                Chưa có trận đấu nào được lên lịch
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Leaderboard preview */}
-        {user && (
+      {hasError ? (
+        <div className="container mx-auto px-4 pb-24 md:pb-12 max-w-lg">
+          <DbErrorPanel onRetry={() => setRetryTrigger(prev => prev + 1)} />
+        </div>
+      ) : (
+        <div className="container mx-auto px-4 pb-24 md:pb-12 grid md:grid-cols-2 gap-8">
+          {/* Upcoming matches */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="font-display font-bold text-xl">Bảng Xếp Hạng</h2>
-                {user.role === 'admin' ? (
-                  <p className="text-sm text-muted-foreground">Toàn hệ thống</p>
-                ) : user.company ? (
-                  <p className="text-sm text-muted-foreground">{user.company.name}</p>
-                ) : null}
-              </div>
-              <Link to="/leaderboard" className="flex items-center gap-1 text-sm text-primary hover:underline">
-                Xem đầy đủ <ChevronRight className="h-4 w-4" />
+              <h2 className="font-display font-bold text-xl">Trận sắp diễn ra</h2>
+              <Link to="/matches" className="flex items-center gap-1 text-sm text-primary hover:underline">
+                Xem tất cả <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
-            <div className="glass-card p-3 space-y-1">
+            <div className="space-y-3">
               {loading
-                ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)
-                : leaderboard.map((entry) => (
-                    <LeaderboardRow
-                      key={entry.user_id}
-                      entry={entry}
-                      isCurrentUser={entry.user_id === user.id}
-                    />
-                  ))
+                ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40" />)
+                : matches.slice(0, 3).map((m) => <MatchCard key={m.id} match={m} prediction={predictions[m.id] ?? null} />)
               }
-              {!loading && leaderboard.length === 0 && (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  Chưa có ai dự đoán
+              {!loading && matches.length === 0 && (
+                <div className="glass-card p-8 text-center text-muted-foreground">
+                  Chưa có trận đấu nào được lên lịch
                 </div>
               )}
             </div>
           </section>
-        )}
-      </div>
+
+          {/* Leaderboard preview */}
+          {user && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="font-display font-bold text-xl">Bảng Xếp Hạng</h2>
+                  {user.role === 'admin' ? (
+                    <p className="text-sm text-muted-foreground">Toàn hệ thống</p>
+                  ) : user.company ? (
+                    <p className="text-sm text-muted-foreground">{user.company.name}</p>
+                  ) : null}
+                </div>
+                <Link to="/leaderboard" className="flex items-center gap-1 text-sm text-primary hover:underline">
+                  Xem đầy đủ <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="glass-card p-3 space-y-1">
+                {loading
+                  ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)
+                  : leaderboard.map((entry) => (
+                      <LeaderboardRow
+                        key={entry.user_id}
+                        entry={entry}
+                        isCurrentUser={entry.user_id === user.id}
+                      />
+                    ))
+                }
+                {!loading && leaderboard.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    Chưa có ai dự đoán
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
     </div>
   )
 }
