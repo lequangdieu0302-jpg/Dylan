@@ -69,6 +69,23 @@ export function AuthPage() {
   }
 
   useEffect(() => {
+    // Khi vào trang login: xóa sạch mọi token Supabase cũ khỏi localStorage.
+    // Incognito luôn hoạt động vì localStorage trống. Đây là cách làm tương tự.
+    // Token dù chưa hết hạn vẫn có thể bị invalid (revoke, wrong project, v.v.)
+    try {
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k))
+      if (keysToRemove.length > 0) {
+        console.log('[AuthPage] Cleared stale Supabase tokens:', keysToRemove)
+      }
+    } catch (_) {}
+
     getCompanies()
       .then((data) => {
         setCompanies(data)
