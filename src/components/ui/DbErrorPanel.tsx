@@ -19,12 +19,14 @@ export function DbErrorPanel({ onRetry, message }: DbErrorPanelProps) {
       // Ignore
     }
     // Force wipe client storage
-    for (let i = localStorage.length - 1; i >= 0; i--) {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        localStorage.removeItem(key)
+        keysToRemove.push(key)
       }
     }
+    keysToRemove.forEach(k => localStorage.removeItem(k))
     // Redirect to auth
     window.location.href = '/auth'
   }

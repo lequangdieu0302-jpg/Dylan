@@ -57,12 +57,14 @@ export const supabase = createClient(
                 } catch (e) {
                   // Ignore
                 }
-                for (let i = localStorage.length - 1; i >= 0; i--) {
+                const keysToRemove: string[] = []
+                for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i)
                   if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                    localStorage.removeItem(key)
+                    keysToRemove.push(key)
                   }
                 }
+                keysToRemove.forEach(k => localStorage.removeItem(k))
 
                 reqHeaders.delete('Authorization')
                 reqHeaders.delete('authorization')
@@ -87,12 +89,14 @@ export const supabase = createClient(
                 } catch (e) {
                   // Ignore
                 }
-                for (let i = localStorage.length - 1; i >= 0; i--) {
+                const keysToRemove: string[] = []
+                for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i)
                   if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                    localStorage.removeItem(key)
+                    keysToRemove.push(key)
                   }
                 }
+                keysToRemove.forEach(k => localStorage.removeItem(k))
 
                 reqHeaders.delete('Authorization')
                 reqHeaders.delete('authorization')
