@@ -149,8 +149,8 @@ export function AuthPage() {
           <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center drop-shadow-2xl">
             <img src="/wc2026-icon.png" alt="WC2026" className="w-20 h-20 object-contain" />
           </div>
-          <h1 className="font-display font-black text-3xl text-gradient-gold">WC Predict</h1>
-          <p className="text-muted-foreground mt-1 text-sm">⚽ World Cup 2026 Prediction Game</p>
+          <h1 className="font-display font-black text-3xl text-gradient-gold">Dự đoán cùng World Cup</h1>
+          <p className="text-muted-foreground mt-1 text-sm">⚽ World Cup 2026</p>
         </div>
 
         {/* Tab switcher */}
@@ -168,13 +168,6 @@ export function AuthPage() {
         </div>
 
         <div className="glass-card p-6 border-white/10">
-          {/* Debug Info */}
-          <div className="bg-yellow-500/10 border border-yellow-500/30 p-2.5 rounded-xl mb-4 text-[10px] font-mono space-y-0.5">
-            <div>URL: {import.meta.env.VITE_SUPABASE_URL || 'MISSING'}</div>
-            <div>Companies Loaded: {companies.length}</div>
-            {companyError && <div className="text-red-400 font-bold">Error: {companyError}</div>}
-          </div>
-
           {tab === 'login' ? (
             <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
               <div className="space-y-1.5">
