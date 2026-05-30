@@ -25,29 +25,37 @@ export const supabase = createClient(
 
         const res = await fetch(url, options)
         
-        // Only intercept database/storage requests that return 401 Unauthorized
-        if (res.status === 401 && !isAuthRequest) {
+        // Only intercept database/storage requests that return errors
+        if ((res.status === 400 || res.status === 401 || res.status === 403) && !isAuthRequest) {
           const clone = res.clone()
           try {
             const body = await clone.json()
             const msg = body?.message?.toLowerCase() || ''
-            if (msg.includes('jwt') || msg.includes('expired') || msg.includes('token') || msg.includes('invalid')) {
+            if (msg.includes('jwt') || msg.includes('expired') || msg.includes('token') || msg.includes('invalid') || body?.code === 'PGRST301') {
               console.log('[Supabase Client] JWT expired/invalid. Attempting to refresh session...')
 
-              const headers = { ...(options?.headers || {}) } as Record<string, string>
+              const reqHeaders = new Headers(options?.headers)
               
               // Prevent infinite retry loop if we already retried this request
-              if (headers['X-Retry-Auth']) {
+              if (reqHeaders.has('X-Retry-Auth') || reqHeaders.has('x-retry-auth')) {
                 console.warn('[Supabase Client] Token refresh retry failed twice. Reverting to guest...')
                 const { clearUser } = useAuthStore.getState()
                 clearUser()
+                try {
+                  await supabase.auth.signOut()
+                } catch (e) {
+                  // Ignore
+                }
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i)
+                  if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                    localStorage.removeItem(key)
+                  }
+                }
 
-                const guestOptions = { ...options }
-                const guestHeaders = { ...headers }
-                delete guestHeaders['Authorization']
-                delete guestHeaders['authorization']
-                guestOptions.headers = guestHeaders
-                return fetch(url, guestOptions)
+                reqHeaders.delete('Authorization')
+                reqHeaders.delete('authorization')
+                return fetch(url, { ...options, headers: reqHeaders })
               }
 
               // Attempt to refresh the Supabase session
@@ -56,25 +64,29 @@ export const supabase = createClient(
               if (session && !refreshError) {
                 console.log('[Supabase Client] Session refreshed successfully. Retrying original request...')
                 
-                const retryOptions = { ...options }
-                const retryHeaders = { ...headers }
-                retryHeaders['Authorization'] = `Bearer ${session.access_token}`
-                retryHeaders['X-Retry-Auth'] = 'true'
-                retryOptions.headers = retryHeaders
-                
-                return fetch(url, retryOptions)
+                reqHeaders.set('Authorization', `Bearer ${session.access_token}`)
+                reqHeaders.set('X-Retry-Auth', 'true')
+                return fetch(url, { ...options, headers: reqHeaders })
               } else {
                 console.warn('[Supabase Client] Session refresh failed. Logging out and retrying as guest...')
                 const { clearUser } = useAuthStore.getState()
                 clearUser()
+                try {
+                  await supabase.auth.signOut()
+                } catch (e) {
+                  // Ignore
+                }
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i)
+                  if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                    localStorage.removeItem(key)
+                  }
+                }
 
-                const guestOptions = { ...options }
-                const guestHeaders = { ...headers }
-                delete guestHeaders['Authorization']
-                delete guestHeaders['authorization']
-                guestHeaders['X-Retry-Auth'] = 'true'
-                guestOptions.headers = guestHeaders
-                return fetch(url, guestOptions)
+                reqHeaders.delete('Authorization')
+                reqHeaders.delete('authorization')
+                reqHeaders.set('X-Retry-Auth', 'true')
+                return fetch(url, { ...options, headers: reqHeaders })
               }
             }
           } catch (e) {

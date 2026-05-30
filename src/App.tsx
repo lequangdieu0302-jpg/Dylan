@@ -77,8 +77,20 @@ export default function App() {
         if (profile) {
           setUser(profile)
         } else {
+          console.warn('[initAuth] Profile not found or invalid session. Force logging out...')
           const { clearUser } = useAuthStore.getState()
           clearUser()
+          try {
+            await supabase.auth.signOut()
+          } catch (e) {
+            // Ignore
+          }
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key)
+            }
+          }
         }
       } else {
         const { clearUser } = useAuthStore.getState()
@@ -94,8 +106,20 @@ export default function App() {
         if (profile) {
           setUser(profile)
         } else {
+          console.warn('[onAuthStateChange] SIGNED_IN but profile not found. Force logging out...')
           const { clearUser } = useAuthStore.getState()
           clearUser()
+          try {
+            await supabase.auth.signOut()
+          } catch (e) {
+            // Ignore
+          }
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key)
+            }
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         const { clearUser } = useAuthStore.getState()
