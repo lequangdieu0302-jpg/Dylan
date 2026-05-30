@@ -28,7 +28,7 @@ export function PredictionCard({ match, existingPrediction, onSaved }: Predictio
 
   const choices: { value: PredictionChoice; label: string; sublabel: string; color: string }[] = [
     { value: 'home', label: homeName, sublabel: 'Thắng',  color: 'selected-home' },
-    { value: 'draw', label: 'Hoà',    sublabel: '1 - 1', color: 'selected-draw' },
+    { value: 'draw', label: 'Hoà',    sublabel: 'Tỷ số hoà', color: 'selected-draw' },
     { value: 'away', label: awayName, sublabel: 'Thắng',  color: 'selected-away' },
   ]
 
