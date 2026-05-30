@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/toaster'
 import { registerUser, loginUser, getProfile } from '@/services/authService'
 import { getCompanies } from '@/services/adminService'
 import { useAuthStore } from '@/stores/authStore'
+import { supabase } from '@/lib/supabase'
 import type { Company } from '@/types'
 
 const loginSchema = z.object({
@@ -35,7 +36,7 @@ export function AuthPage() {
   const [companyError, setCompanyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState('Đang đăng nhập...')
-  const { setUser } = useAuthStore()
+  const { setUser, clearUser } = useAuthStore()
   const navigate = useNavigate()
 
   // Try a Supabase call with timeout + 1 auto-retry (for cold-start wakeups)
@@ -69,22 +70,32 @@ export function AuthPage() {
   }
 
   useEffect(() => {
-    // Khi vào trang login: xóa sạch mọi token Supabase cũ khỏi localStorage.
-    // Incognito luôn hoạt động vì localStorage trống. Đây là cách làm tương tự.
-    // Token dù chưa hết hạn vẫn có thể bị invalid (revoke, wrong project, v.v.)
-    try {
-      const keysToRemove: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          keysToRemove.push(key)
+    // Vào trang đăng nhập → reset toàn bộ session về trạng thái sạch (giống incognito)
+    // Chỉ xóa localStorage không đủ vì Supabase client đã load token vào memory khi khởi động.
+    // signOut({ scope: 'local' }) xóa cả in-memory state của client + localStorage.
+    const resetSession = async () => {
+      try {
+        // 1. Xóa Zustand auth store
+        clearUser()
+        // 2. Xóa wc-auth persist key
+        localStorage.removeItem('wc-auth')
+        // 3. Xóa tất cả Supabase tokens trong localStorage
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            keysToRemove.push(key)
+          }
         }
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+        // 4. Quan trọng nhất: reset in-memory session state của Supabase client
+        await supabase.auth.signOut({ scope: 'local' })
+        console.log('[AuthPage] Session fully reset — ready for fresh login')
+      } catch (_) {
+        // Bỏ qua lỗi signOut, vẫn có thể đăng nhập bình thường
       }
-      keysToRemove.forEach(k => localStorage.removeItem(k))
-      if (keysToRemove.length > 0) {
-        console.log('[AuthPage] Cleared stale Supabase tokens:', keysToRemove)
-      }
-    } catch (_) {}
+    }
+    resetSession()
 
     getCompanies()
       .then((data) => {
