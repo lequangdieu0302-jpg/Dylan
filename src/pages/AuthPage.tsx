@@ -34,8 +34,39 @@ export function AuthPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyError, setCompanyError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingMsg, setLoadingMsg] = useState('Đang đăng nhập...')
   const { setUser } = useAuthStore()
   const navigate = useNavigate()
+
+  // Try a Supabase call with timeout + 1 auto-retry (for cold-start wakeups)
+  async function withRetry<T>(fn: () => Promise<T>, timeoutMs: number, label: string): Promise<T> {
+    const attempt = () => Promise.race([
+      fn(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('CONNECTION_TIMEOUT')), timeoutMs)
+      ),
+    ])
+
+    try {
+      return await attempt()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      const isConnErr = msg === 'CONNECTION_TIMEOUT'
+        || msg.toLowerCase().includes('failed to fetch')
+        || msg.toLowerCase().includes('networkerror')
+        || msg.toLowerCase().includes('maximum allowed duration')
+
+      if (isConnErr) {
+        // Supabase cold-starting — wait 3s then retry once
+        console.warn(`[${label}] connection issue, retrying in 3s...`)
+        setLoadingMsg('Máy chủ đang khởi động, thử lại...')
+        await new Promise(r => setTimeout(r, 3000))
+        setLoadingMsg('Đang kết nối lại...')
+        return await attempt()
+      }
+      throw e
+    }
+  }
 
   useEffect(() => {
     getCompanies()
@@ -55,16 +86,12 @@ export function AuthPage() {
 
   const handleLogin = async (data: LoginForm) => {
     setLoading(true)
+    setLoadingMsg('Đang đăng nhập...')
     try {
-      // 10s timeout on the login request itself — prevents infinite hang
       let result: Awaited<ReturnType<typeof loginUser>>
       try {
-        result = await Promise.race([
-          loginUser(data),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Kết nối quá chậm, thử lại nhé!')), 10000)
-          ),
-        ])
+        // 30s with auto-retry on cold-start
+        result = await withRetry(() => loginUser(data), 30000, 'Login')
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('invalid credentials')) {
@@ -72,28 +99,25 @@ export function AuthPage() {
         } else if (msg.toLowerCase().includes('email not confirmed')) {
           toast.error('⚠️ Email chưa xác nhận', 'Tắt "Confirm email" trong Supabase → Authentication → Providers → Email')
         } else {
-          toast.error('Đăng nhập thất bại', msg)
+          toast.error('Không thể kết nối', 'Máy chủ không phản hồi. Vui lòng thử lại sau ít phút.')
         }
         return
       }
 
       if (!result.session) {
-        toast.error(
-          '⚠️ Email chưa xác nhận',
-          'Vào Supabase → Authentication → Providers → Email → Tắt "Confirm email" rồi thử lại'
-        )
+        toast.error('⚠️ Email chưa xác nhận', 'Vào Supabase → Authentication → Providers → Email → Tắt "Confirm email" rồi thử lại')
         return
       }
 
-      // Try to load profile (5s timeout)
+      // Load profile (10s, session already established so no retry needed)
       let profile = null
       try {
         profile = await Promise.race([
           getProfile(result.session.user.id),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
         ])
       } catch {
-        console.warn('[Login] getProfile timeout — continuing without profile')
+        console.warn('[Login] getProfile timeout — continuing')
       }
 
       if (profile) {
@@ -105,24 +129,21 @@ export function AuthPage() {
       navigate('/')
     } finally {
       setLoading(false)
+      setLoadingMsg('Đang đăng nhập...')
     }
   }
 
   const handleRegister = async (data: RegisterForm) => {
     setLoading(true)
+    setLoadingMsg('Đang đăng ký...')
     try {
-      // 15s timeout for register (includes profile creation)
       let result: Awaited<ReturnType<typeof registerUser>>
       try {
-        result = await Promise.race([
-          registerUser(data),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Kết nối quá chậm, thử lại nhé!')), 15000)
-          ),
-        ])
+        // 40s with auto-retry (register includes profile creation trigger)
+        result = await withRetry(() => registerUser(data), 40000, 'Register')
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        toast.error('Đăng ký thất bại', msg)
+        toast.error('Không thể kết nối', msg.includes('CONNECTION_TIMEOUT') ? 'Máy chủ không phản hồi. Vui lòng thử lại.' : msg)
         return
       }
 
@@ -130,7 +151,7 @@ export function AuthPage() {
         try {
           const profile = await Promise.race([
             getProfile(result.session.user.id),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
           ])
           if (profile) setUser(profile)
         } catch { /* ignore */ }
@@ -142,6 +163,7 @@ export function AuthPage() {
       }
     } finally {
       setLoading(false)
+      setLoadingMsg('Đang đăng ký...')
     }
   }
 
@@ -205,7 +227,7 @@ export function AuthPage() {
                 )}
               </div>
               <Button type="submit" className="w-full" size="lg" variant="gold" disabled={loading}>
-                {loading ? 'Đang đăng nhập...' : '🚀 Đăng nhập'}
+                {loading ? loadingMsg : '🚀 Đăng nhập'}
               </Button>
             </form>
           ) : (
@@ -255,7 +277,7 @@ export function AuthPage() {
                 )}
               </div>
               <Button type="submit" className="w-full" size="lg" variant="gold" disabled={loading}>
-                {loading ? 'Đang đăng ký...' : '⚽ Tạo tài khoản'}
+                {loading ? loadingMsg : '⚽ Tạo tài khoản'}
               </Button>
             </form>
           )}
