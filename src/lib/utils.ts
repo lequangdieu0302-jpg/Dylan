@@ -79,6 +79,7 @@ export function getPredictionLabel(prediction: string): string {
   if (prediction === 'home') return 'Đội nhà thắng'
   if (prediction === 'draw') return 'Hòa'
   if (prediction === 'away') return 'Đội khách thắng'
+  if (prediction === 'none') return 'Không dự đoán'
   return ''
 }
 

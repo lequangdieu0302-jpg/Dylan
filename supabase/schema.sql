@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS predictions (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id        UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   match_id       UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-  prediction     TEXT NOT NULL CHECK (prediction IN ('home', 'draw', 'away')),
+  prediction     TEXT NOT NULL CHECK (prediction IN ('home', 'draw', 'away', 'none')),
   used_hope_star BOOLEAN NOT NULL DEFAULT FALSE,
   is_correct     BOOLEAN,
   money_change   INTEGER NOT NULL DEFAULT 0,
@@ -204,6 +204,7 @@ DECLARE
   pred RECORD;
   v_is_correct BOOLEAN;
   v_money_change INTEGER;
+  user_prof RECORD;
 BEGIN
   -- Update match record
   UPDATE matches
@@ -251,6 +252,30 @@ BEGIN
       total_money   = total_money   + v_money_change,
       hope_stars    = GREATEST(0, hope_stars - CASE WHEN pred.used_hope_star THEN 1 ELSE 0 END)
     WHERE id = pred.user_id;
+  END LOOP;
+
+  -- Phạt các user KHÔNG dự đoán trận này (tính là sai và đóng 10k)
+  FOR user_prof IN
+    SELECT id
+    FROM profiles
+    WHERE role = 'user'
+      AND id NOT IN (
+        SELECT user_id 
+        FROM predictions 
+        WHERE match_id = p_match_id
+      )
+  LOOP
+    -- Thêm dòng dự đoán ảo 'none' để lưu lịch sử
+    INSERT INTO predictions (user_id, match_id, prediction, used_hope_star, is_correct, money_change)
+    VALUES (user_prof.id, p_match_id, 'none', FALSE, FALSE, 10000)
+    ON CONFLICT (user_id, match_id) DO NOTHING;
+
+    -- Cập nhật profile của user lười vote
+    UPDATE profiles
+    SET
+      total_wrong = total_wrong + 1,
+      total_money = total_money + 10000
+    WHERE id = user_prof.id;
   END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
