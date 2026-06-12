@@ -20,10 +20,18 @@ async function syncResults() {
   console.log('=== STARTING WORLD CUP MATCH SYNC ===')
   
   try {
-    // 1. Fetch matches from database that are NOT finished yet
+    // 1. Fetch matches from database that are NOT finished yet (with team names for fallback matching)
     const { data: dbMatches, error: dbError } = await supabase
       .from('matches')
-      .select('id, external_id, status, home_team_id, away_team_id')
+      .select(`
+        id, 
+        external_id, 
+        status, 
+        home_team_id, 
+        away_team_id,
+        home_team:teams!matches_home_team_id_fkey(name),
+        away_team:teams!matches_away_team_id_fkey(name)
+      `)
       .neq('status', 'finished')
 
     if (dbError) throw dbError
@@ -55,8 +63,56 @@ async function syncResults() {
 
     for (const dbMatch of dbMatches) {
       // Find matching match in the API response using external_id (e.g. Football-Data match ID)
-      // Or fallback: match by team names/coordinates if external_id is not set.
-      const apiMatch = apiMatches.find(m => String(m.id) === String(dbMatch.external_id))
+      let apiMatch = apiMatches.find(m => String(m.id) === String(dbMatch.external_id))
+
+      if (!apiMatch) {
+        // Fallback: match by team names (fuzzy matching English names)
+        const localHomeName = dbMatch.home_team?.name?.toLowerCase() || ''
+        const localAwayName = dbMatch.away_team?.name?.toLowerCase() || ''
+
+        if (localHomeName && localAwayName) {
+          apiMatch = apiMatches.find(m => {
+            const apiHomeName = m.homeTeam?.name?.toLowerCase() || ''
+            const apiAwayName = m.awayTeam?.name?.toLowerCase() || ''
+            const apiHomeShort = m.homeTeam?.shortName?.toLowerCase() || ''
+            const apiAwayShort = m.awayTeam?.shortName?.toLowerCase() || ''
+            const apiHomeTla = m.homeTeam?.tla?.toLowerCase() || ''
+            const apiAwayTla = m.awayTeam?.tla?.toLowerCase() || ''
+
+            // Compare names (exact, shortName, tla, or substring matches)
+            const isHomeMatch = apiHomeName === localHomeName || 
+                                apiHomeShort === localHomeName || 
+                                apiHomeTla === localHomeName || 
+                                localHomeName.includes(apiHomeName) || 
+                                apiHomeName.includes(localHomeName)
+
+            const isAwayMatch = apiAwayName === localAwayName || 
+                                apiAwayShort === localAwayName || 
+                                apiAwayTla === localAwayName || 
+                                localAwayName.includes(apiAwayName) || 
+                                apiAwayName.includes(localAwayName)
+
+            return isHomeMatch && isAwayMatch
+          })
+
+          if (apiMatch) {
+            console.log(`[Fuzzy Match] Mapped local match ID ${dbMatch.id} (${dbMatch.home_team?.name} vs ${dbMatch.away_team?.name}) -> API Match ID: ${apiMatch.id}`)
+            
+            // Save the resolved external_id back to database so next run matches instantly by ID
+            const { error: updateErr } = await supabase
+              .from('matches')
+              .update({ external_id: String(apiMatch.id) })
+              .eq('id', dbMatch.id)
+
+            if (updateErr) {
+              console.warn(`[Warning] Failed to update external_id for match ${dbMatch.id}:`, updateErr.message)
+            } else {
+              console.log(`[Database] Auto-updated external_id = '${apiMatch.id}' for match ${dbMatch.id}`)
+              dbMatch.external_id = String(apiMatch.id) // update local ref
+            }
+          }
+        }
+      }
 
       if (!apiMatch) {
         // Log a warning and skip
