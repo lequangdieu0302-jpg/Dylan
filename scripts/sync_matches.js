@@ -16,11 +16,48 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 // Initialise Supabase Client with service_role key to bypass RLS policies
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// Helper function to normalize team names for robust matching
+function normalizeName(name) {
+  if (!name) return ''
+  let normalized = name.toLowerCase()
+  
+  // Normalize Unicode characters (strip accents like in Côte d'Ivoire, Curaçao, Türkiye)
+  normalized = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  
+  // Replace symbols and standardise spaces
+  normalized = normalized.replace(/&/g, 'and')
+  normalized = normalized.replace(/[-\s]+/g, ' ')
+  
+  // Apply direct mappings for known mismatches between DB and Football-Data API
+  const mappings = {
+    'cote d\'ivoire': 'ivory coast',
+    'cote divoire': 'ivory coast',
+    'turkiye': 'turkey',
+    'czechia': 'czech republic',
+    'democratic republic of the congo': 'dr congo',
+    'congo dr': 'dr congo',
+    'united states': 'usa',
+    'united states of america': 'usa',
+    'cabo verde': 'cape verde',
+    'korea republic': 'south korea',
+    'republic of korea': 'south korea',
+    'korea': 'south korea'
+  }
+  
+  for (const [key, value] of Object.entries(mappings)) {
+    if (normalized === key || normalized.includes(key) || key.includes(normalized)) {
+      return value
+    }
+  }
+  
+  return normalized
+}
+
 async function syncResults() {
   console.log('=== STARTING WORLD CUP MATCH SYNC ===')
   
   try {
-    // 1. Fetch matches from database that are NOT finished yet (with team names for fallback matching)
+    // 1. Fetch all matches from database (to match placeholders 'local_2026_x' even if manually marked finished)
     const { data: dbMatches, error: dbError } = await supabase
       .from('matches')
       .select(`
@@ -32,15 +69,14 @@ async function syncResults() {
         home_team:teams!matches_home_team_id_fkey(name),
         away_team:teams!matches_away_team_id_fkey(name)
       `)
-      .neq('status', 'finished')
 
     if (dbError) throw dbError
     if (!dbMatches || dbMatches.length === 0) {
-      console.log('No unfinished matches found in database. Sync complete.')
+      console.log('No matches found in database. Sync complete.')
       return
     }
 
-    console.log(`Found ${dbMatches.length} unfinished matches in database.`)
+    console.log(`Found ${dbMatches.length} matches in database.`)
 
     // 2. Fetch match updates from Football-Data.org
     // competition 'WC' represents the FIFA World Cup
@@ -67,30 +103,38 @@ async function syncResults() {
 
       if (!apiMatch) {
         // Fallback: match by team names (fuzzy matching English names)
-        const localHomeName = dbMatch.home_team?.name?.toLowerCase() || ''
-        const localAwayName = dbMatch.away_team?.name?.toLowerCase() || ''
+        const localHomeName = dbMatch.home_team?.name || ''
+        const localAwayName = dbMatch.away_team?.name || ''
 
         if (localHomeName && localAwayName) {
+          const normLocalHome = normalizeName(localHomeName)
+          const normLocalAway = normalizeName(localAwayName)
+
           apiMatch = apiMatches.find(m => {
-            const apiHomeName = m.homeTeam?.name?.toLowerCase() || ''
-            const apiAwayName = m.awayTeam?.name?.toLowerCase() || ''
-            const apiHomeShort = m.homeTeam?.shortName?.toLowerCase() || ''
-            const apiAwayShort = m.awayTeam?.shortName?.toLowerCase() || ''
+            const apiHomeName = m.homeTeam?.name || ''
+            const apiAwayName = m.awayTeam?.name || ''
+            const apiHomeShort = m.homeTeam?.shortName || ''
+            const apiAwayShort = m.awayTeam?.shortName || ''
             const apiHomeTla = m.homeTeam?.tla?.toLowerCase() || ''
             const apiAwayTla = m.awayTeam?.tla?.toLowerCase() || ''
 
-            // Compare names (exact, shortName, tla, or substring matches)
-            const isHomeMatch = apiHomeName === localHomeName || 
-                                apiHomeShort === localHomeName || 
-                                apiHomeTla === localHomeName || 
-                                localHomeName.includes(apiHomeName) || 
-                                apiHomeName.includes(localHomeName)
+            const normApiHomeName = normalizeName(apiHomeName)
+            const normApiAwayName = normalizeName(apiAwayName)
+            const normApiHomeShort = normalizeName(apiHomeShort)
+            const normApiAwayShort = normalizeName(apiAwayShort)
 
-            const isAwayMatch = apiAwayName === localAwayName || 
-                                apiAwayShort === localAwayName || 
-                                apiAwayTla === localAwayName || 
-                                localAwayName.includes(apiAwayName) || 
-                                apiAwayName.includes(localAwayName)
+            // Compare names (exact, shortName, tla, or substring matches)
+            const isHomeMatch = normApiHomeName === normLocalHome || 
+                                normApiHomeShort === normLocalHome || 
+                                apiHomeTla === normLocalHome || 
+                                normLocalHome.includes(normApiHomeName) || 
+                                normApiHomeName.includes(normLocalHome)
+
+            const isAwayMatch = normApiAwayName === normLocalAway || 
+                                normApiAwayShort === normLocalAway || 
+                                apiAwayTla === normLocalAway || 
+                                normLocalAway.includes(normApiAwayName) || 
+                                normApiAwayName.includes(normLocalAway)
 
             return isHomeMatch && isAwayMatch
           })
