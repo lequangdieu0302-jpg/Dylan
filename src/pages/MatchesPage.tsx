@@ -18,6 +18,14 @@ async function fetchWithTimeout<T>(promise: Promise<T>, ms = 20000): Promise<T> 
 
 import { DbErrorPanel } from '@/components/ui/DbErrorPanel'
 
+function getLocalDateString(timeStr: string | Date) {
+  const date = typeof timeStr === 'string' ? new Date(timeStr) : timeStr
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 export function MatchesPage() {
   const { user } = useAuthStore()
   const { matches, setMatches, loading, setLoading } = useMatchStore()
@@ -29,7 +37,7 @@ export function MatchesPage() {
   const [hasError, setHasError] = useState(false)
   const [retryTrigger, setRetryTrigger] = useState(0)
   
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = getLocalDateString(new Date())
 
   useEffect(() => {
     async function load() {
@@ -91,9 +99,9 @@ export function MatchesPage() {
     }
   }, [user, setMatches, setLoading, matches.length, retryTrigger])
 
-  // Extract unique dates in ascending order (YYYY-MM-DD)
+  // Extract unique dates in ascending order (YYYY-MM-DD) in local timezone
   const uniqueDateStrings = Array.from(
-    new Set(matches.map(m => m.match_time.split('T')[0]))
+    new Set(matches.map(m => getLocalDateString(m.match_time)))
   ).sort()
 
   // Extract unique group codes dynamically
@@ -107,9 +115,8 @@ export function MatchesPage() {
 
   // Helper to format date headers
   const formatDateHeader = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const day = d.getDate().toString().padStart(2, '0')
-    const month = (d.getMonth() + 1).toString().padStart(2, '0')
+    const [year, month, day] = dateStr.split('-')
+    const d = new Date(Number(year), Number(month) - 1, Number(day))
     const weekday = d.toLocaleDateString('vi-VN', { weekday: 'short' }).replace('Th ', 'T')
     return { date: `${day}/${month}`, weekday }
   }
@@ -118,7 +125,7 @@ export function MatchesPage() {
   const filtered = matches.filter(m => {
     if (filter !== 'all' && m.status !== filter) return false
     if (selectedDate !== 'all') {
-      const matchDate = m.match_time.split('T')[0]
+      const matchDate = getLocalDateString(m.match_time)
       if (matchDate !== selectedDate) return false
     }
     if (selectedGroup !== 'all') {
@@ -317,7 +324,7 @@ export function MatchesPage() {
                         const isToday = dateStr === todayStr
                         // Find matches for this group and date
                         const cellMatches = matches.filter(m => {
-                          const matchDate = m.match_time.split('T')[0]
+                          const matchDate = getLocalDateString(m.match_time)
                           if (matchDate !== dateStr) return false
                           if (group === 'KO') {
                             return !m.home_team?.group_code
