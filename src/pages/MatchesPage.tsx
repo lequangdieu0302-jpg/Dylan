@@ -28,6 +28,8 @@ export function MatchesPage() {
   const [activeTab, setActiveTab] = useState<'list' | 'matrix'>('list')
   const [hasError, setHasError] = useState(false)
   const [retryTrigger, setRetryTrigger] = useState(0)
+  
+  const todayStr = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     async function load() {
@@ -278,10 +280,25 @@ export function MatchesPage() {
                   </th>
                   {uniqueDateStrings.map(dateStr => {
                     const { date, weekday } = formatDateHeader(dateStr)
+                    const isToday = dateStr === todayStr
                     return (
-                      <th key={dateStr} className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900 p-3 text-center border-r border-b border-slate-200 dark:border-white/10 min-w-[130px]">
-                        <div className="text-[9px] text-slate-500 dark:text-muted-foreground font-semibold uppercase">{weekday}</div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">{date}</div>
+                      <th 
+                        key={dateStr} 
+                        className={`sticky top-0 z-20 p-3 text-center border-r border-b min-w-[130px] transition-colors
+                          ${isToday 
+                            ? 'bg-amber-500/15 dark:bg-amber-500/10 border-amber-500/30' 
+                            : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-white/10'
+                          }`}
+                      >
+                        <div className={`text-[9px] font-semibold uppercase ${isToday ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500 dark:text-muted-foreground'}`}>{weekday}</div>
+                        <div className={`text-xs font-bold ${isToday ? 'text-amber-800 dark:text-amber-355' : 'text-slate-900 dark:text-white'}`}>
+                          {date}
+                          {isToday && (
+                            <span className="block text-[8px] mt-0.5 text-amber-600 dark:text-amber-400 font-medium bg-amber-500/20 px-1 py-0.5 rounded-full inline-block">
+                              Hôm nay
+                            </span>
+                          )}
+                        </div>
                       </th>
                     )
                   })}
@@ -297,6 +314,7 @@ export function MatchesPage() {
                         {label}
                       </td>
                       {uniqueDateStrings.map(dateStr => {
+                        const isToday = dateStr === todayStr
                         // Find matches for this group and date
                         const cellMatches = matches.filter(m => {
                           const matchDate = m.match_time.split('T')[0]
@@ -309,7 +327,14 @@ export function MatchesPage() {
                         })
 
                         return (
-                          <td key={dateStr} className="p-2 border-r border-b border-slate-200 dark:border-white/5 h-20 align-middle text-center bg-white dark:bg-slate-950">
+                          <td 
+                            key={dateStr} 
+                            className={`p-2 border-r border-b h-20 align-middle text-center transition-colors
+                              ${isToday 
+                                ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.02] border-r-slate-200 dark:border-r-white/5' 
+                                : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-white/5'
+                              }`}
+                          >
                             {cellMatches.length > 0 ? (
                               <div className="flex flex-col gap-1 justify-center items-center">
                                 {cellMatches.map(m => {
